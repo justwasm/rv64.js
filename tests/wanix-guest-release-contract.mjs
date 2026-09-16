@@ -76,14 +76,14 @@ required(
   "archive verification",
 );
 required(build, "tar -tf \"$archive\" --wildcards \"boot/$kernel_name\" >/dev/null", "archive verification");
-for (const binary of ["podman", "python3", "tmux", "uv"]) {
+for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv"]) {
   required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} archive verification`);
 }
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
 
 const bundle = read("integrations/wanix/build-linux-bundle.sh");
-required(bundle, "profile_packages=(ca-certificates podman python3 tmux uv)", "full OCI, Python, and multitasking package set");
-for (const binary of ["podman", "python3", "tmux", "uv"]) {
+required(bundle, "profile_packages=(attr ca-certificates podman python3 strace tmux uv)", "full OCI, Python, multitasking, and debugging package set");
+for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv"]) {
   required(bundle, `test -x "$rootfs/usr/bin/${binary}"`, `${binary} rootfs validation`);
 }
 assert.doesNotMatch(bundle, /profile_packages=.*\b(docker|docker-proxy|dockerd)\b/, "full image must not include Docker");

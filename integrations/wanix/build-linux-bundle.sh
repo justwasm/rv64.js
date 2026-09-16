@@ -64,7 +64,7 @@ case "$profile" in
         profile_packages=()
         ;;
     full)
-        profile_packages=(ca-certificates podman python3 tmux uv)
+        profile_packages=(attr ca-certificates podman python3 strace tmux uv)
         ;;
     *)
         echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal or full)" >&2
@@ -103,8 +103,10 @@ if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
         add "${packages[@]}"
 fi
 if [ "$profile" = full ]; then
+    test -x "$rootfs/usr/bin/getfattr"
     test -x "$rootfs/usr/bin/podman"
     test -x "$rootfs/usr/bin/python3"
+    test -x "$rootfs/usr/bin/strace"
     test -x "$rootfs/usr/bin/tmux"
     test -x "$rootfs/usr/bin/uv"
 fi
