@@ -91,7 +91,7 @@ container="wanix-$guest_arch-root-$$"
 wanix_src="$tmp/wanix"
 rootfs="$tmp/rootfs"
 wanix_ref="${WANIX_REF:-6594fe3763eb8712e81914f78b79243bb403f5cc}"
-trap '$docker_cmd rm -f "$container" >/dev/null 2>&1 || true; rm -rf "$tmp"' EXIT
+trap '$docker_cmd rm -f "$container" >/dev/null 2>&1 || true; chmod -R u+rwX "$tmp" >/dev/null 2>&1 || true; rm -rf "$tmp" >/dev/null 2>&1 || true' EXIT
 
 if [ -z "$kernel" ]; then
     kernel="$(nix build --no-link --print-out-paths "path:$rv64_dir#$kernel_attr" \
@@ -164,7 +164,7 @@ case "$profile" in
         ;;
 esac
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
-    find -H /target \( -type f -o -type d \) -exec chown "$(id -u):$(id -g)" {} + || true
+    sh -ec 'chown -R "$1:$2" /target; chmod -R u+rwX /target' -- "$(id -u)" "$(id -g)"
 
 git clone --quiet https://github.com/tractordev/wanix.git "$wanix_src"
 git -C "$wanix_src" checkout --quiet "$wanix_ref"
