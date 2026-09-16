@@ -80,18 +80,15 @@ for (const archive of [
   required(makefile, `$(DIST)/${archive}:`, "guest archive target");
 }
 
-const workflow = read(".github/workflows/wanix-guests.yml");
-required(workflow, "arch: [riscv64, x86, arm64]", "guest workflow architecture matrix");
-required(workflow, "profile: [minimal, container, container-full]", "guest workflow profile matrix");
-required(workflow, 'test "${#assets[@]}" -eq 9', "guest workflow archive count");
-required(workflow, 'gh release upload "$RELEASE_TAG"', "guest workflow release upload");
+const releaseWorkflow = read(".github/workflows/release.yml");
+required(releaseWorkflow, 'name: rv64.js and WANIX release', "unified release workflow");
+required(releaseWorkflow, '- "v[0-9]+.[0-9]+.[0-9]+"', "semver release trigger");
+required(releaseWorkflow, "arch: [riscv64, x86, arm64]", "guest workflow architecture matrix");
+required(releaseWorkflow, "profile: [minimal, container, container-full]", "guest workflow profile matrix");
+required(releaseWorkflow, 'test "${#assets[@]}" -eq 9', "guest workflow archive count");
+required(releaseWorkflow, 'gh release upload "$release_tag"', "guest workflow release upload");
+required(releaseWorkflow, 'target/release/rv64.tgz', "rv64 archive release asset");
+required(releaseWorkflow, '"rv64.js-${release_tag#v}.tar.gz"', "library release asset");
+assert.doesNotMatch(releaseWorkflow, /wanix-(guest|rv64)-[^\n]*tag/i, "legacy WANIX release tag family");
 
-const archiveWorkflow = read(".github/workflows/rv64-archive.yml");
-required(
-  archiveWorkflow,
-  'https://github.com/justwasm/rv64.js/releases/download/${UPSTREAM}/rv64.js',
-  "rv64 archive loader source",
-);
-assert.doesNotMatch(archiveWorkflow, /github\.com\/btwiuse\/rv64\.js\/releases/, "rv64 archive loader source");
-
-console.log("WANIX guest release contract: PASS");
+console.log("WANIX release contract: PASS");

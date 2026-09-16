@@ -1,19 +1,26 @@
-name: Library release
+name: rv64.js and WANIX release
 
 on:
   push:
     tags:
-      - "v[0-9]*"
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing semver tag to publish
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: library-release-${{ github.ref_name }}
+  group: rv64-wanix-release-${{ github.event.inputs.release_tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
+  build-library:
+    name: Build rv64.js library
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -23,7 +30,8 @@ jobs:
       - name: Validate release tag
         shell: bash
         run: |
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "tag must be an exact semver such as v0.1.0" >&2
             exit 2
           fi
@@ -36,10 +44,11 @@ jobs:
           node tests/public-api.mjs
           node tests/worker-api.mjs
 
-      - name: Assemble release assets
+      - name: Assemble library assets
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          version="${release_tag#v}"
           out="target/library-release"
           bundle="$out/rv64.js-$version"
           mkdir -p "$bundle"
@@ -51,24 +60,182 @@ jobs:
           tar -C "$out" -czf "$out/rv64.js-$version.tar.gz" "rv64.js-$version"
           cp "$bundle/rv64.js" "$bundle/rv64.d.ts" "$bundle/rv64.worker.js" \
             "$bundle/rv64_wasm.wasm" "$out/"
-          (cd "$out" && sha256sum rv64.js rv64.d.ts rv64.worker.js \
-            rv64_wasm.wasm "rv64.js-$version.tar.gz" > SHA256SUMS)
 
-      - name: Publish GitHub release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: library-assets
+          path: target/library-release
+          if-no-files-found: error
+          retention-days: 7
+
+  build-rv64-archive:
+    name: Build WANIX rv64 archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+
+      - name: Build rv64-vm.wasm
+        working-directory: integrations/wanix/adapter
+        run: |
+          GOWORK=off GOOS=js GOARCH=wasm go build \
+            -o ../../dist/rv64-vm.wasm .
+
+      - name: Build rv64_wasm.wasm
+        run: |
+          cargo build -p rv64-wasm --target wasm32-unknown-unknown --release
+          cp target/wasm32-unknown-unknown/release/rv64_wasm.wasm \
+            integrations/wanix/dist/rv64_wasm.wasm
+
+      - name: Bundle rv64.tgz
+        working-directory: integrations/wanix
+        run: |
+          tar -czf dist/rv64.tgz -C dist rv64-vm.wasm rv64_wasm.wasm \
+            -C ../../web rv64.js
+
+      - name: Inspect archive contents
+        working-directory: integrations/wanix
+        run: |
+          tar -tzf dist/rv64.tgz | sort
+          tar -tzf dist/rv64.tgz | grep -qx 'rv64-vm.wasm'
+          tar -tzf dist/rv64.tgz | grep -qx 'rv64_wasm.wasm'
+          tar -tzf dist/rv64.tgz | grep -qx 'rv64.js'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wanix-rv64-archive
+          path: integrations/wanix/dist/rv64.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-core:
+    name: Publish rv64.js and WANIX rv64 archive
+    needs: [build-library, build-rv64-archive]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: library-assets
+          path: target/release
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wanix-rv64-archive
+          path: target/release
+
+      - name: Assemble and verify core release payload
+        shell: bash
+        run: |
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          cd target/release
+          sha256sum rv64.js rv64.d.ts rv64.worker.js rv64_wasm.wasm \
+            "rv64.js-${release_tag#v}.tar.gz" rv64.tgz > SHA256SUMS
+
+      - name: Publish core release assets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          out="target/library-release"
-          gh release create "$GITHUB_REF_NAME" \
-            "$out/SHA256SUMS" \
-            "$out/rv64.js" \
-            "$out/rv64.d.ts" \
-            "$out/rv64.worker.js" \
-            "$out/rv64_wasm.wasm" \
-            "$out/rv64.js-$version.tar.gz" \
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          gh release create "$release_tag" \
+            target/release/SHA256SUMS \
+            target/release/rv64.js \
+            target/release/rv64.d.ts \
+            target/release/rv64.worker.js \
+            target/release/rv64_wasm.wasm \
+            "target/release/rv64.js-${release_tag#v}.tar.gz" \
+            target/release/rv64.tgz \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --generate-notes \
-            --title "rv64.js $GITHUB_REF_NAME"
+            --title "rv64.js and WANIX $release_tag"
+
+  build-wanix-guests:
+    name: Build ${{ matrix.arch }}-${{ matrix.profile }} guest
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [riscv64, x86, arm64]
+        profile: [minimal, container, container-full]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Build and validate guest archive
+        run: |
+          chmod +x tools/build-wanix-release-assets.sh
+          tools/build-wanix-release-assets.sh \
+            "${{ matrix.arch }}" \
+            "${{ matrix.profile }}" \
+            "target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wanix-${{ matrix.arch }}-${{ matrix.profile }}
+          path: target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-guests:
+    name: Publish WANIX guest archives
+    needs: [publish-core, build-wanix-guests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: target/wanix-guests
+          pattern: wanix-*
+          merge-multiple: true
+
+      - name: Assemble and verify guest release payload
+        shell: bash
+        run: |
+          shopt -s nullglob
+          assets=(target/wanix-guests/wanix-linux-*.tgz)
+          test "${#assets[@]}" -eq 9
+          sha256sum "${assets[@]}" | tee target/wanix-guests/WANIX_GUESTS_SHA256SUMS
+
+      - name: Publish guest release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          gh release upload "$release_tag" \
+            target/wanix-guests/wanix-linux-*.tgz \
+            target/wanix-guests/WANIX_GUESTS_SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --clobber
