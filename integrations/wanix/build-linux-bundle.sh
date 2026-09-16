@@ -64,7 +64,7 @@ case "$profile" in
         profile_packages=()
         ;;
     full)
-        profile_packages=(ca-certificates podman python3 uv)
+        profile_packages=(ca-certificates podman python3 tmux uv)
         ;;
     *)
         echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal or full)" >&2
@@ -105,6 +105,7 @@ fi
 if [ "$profile" = full ]; then
     test -x "$rootfs/usr/bin/podman"
     test -x "$rootfs/usr/bin/python3"
+    test -x "$rootfs/usr/bin/tmux"
     test -x "$rootfs/usr/bin/uv"
 fi
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \

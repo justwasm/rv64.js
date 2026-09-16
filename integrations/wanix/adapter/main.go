@@ -205,7 +205,7 @@ func await(promise js.Value) (js.Value, error) {
 		return nil
 	})
 	reject := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		awaitErr = fmt.Errorf("%s", args[0].Call("toString").String())
+		awaitErr = fmt.Errorf("%s", jsErrorString(args[0]))
 		close(done)
 		return nil
 	})
@@ -214,6 +214,16 @@ func await(promise js.Value) (js.Value, error) {
 	resolve.Release()
 	reject.Release()
 	return value, awaitErr
+}
+
+func jsErrorString(value js.Value) string {
+	if value.Type() == js.TypeString {
+		return value.String()
+	}
+	if value.Type() == js.TypeUndefined || value.Type() == js.TypeNull {
+		return "JavaScript promise rejected without an error"
+	}
+	return value.Call("toString").String()
 }
 
 func newP9Handler() js.Value {

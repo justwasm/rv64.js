@@ -74,5 +74,6 @@ tar -tf "$archive" --wildcards "boot/$kernel_name" >/dev/null
 if [ "$rootfs_profile" = full ]; then
     tar -tf "$archive" --wildcards "usr/bin/podman" >/dev/null
     tar -tf "$archive" --wildcards "usr/bin/python3" >/dev/null
+    tar -tf "$archive" --wildcards "usr/bin/tmux" >/dev/null
     tar -tf "$archive" --wildcards "usr/bin/uv" >/dev/null
 fi
