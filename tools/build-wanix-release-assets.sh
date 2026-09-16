@@ -72,7 +72,7 @@ file "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
 archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
 tar -tf "$archive" --wildcards "boot/$kernel_name" >/dev/null
 if [ "$rootfs_profile" = full ]; then
-    tar -tf "$archive" --wildcards "usr/bin/docker-proxy" >/dev/null
-    daemon_config="$(tar -xOf "$archive" etc/docker/daemon.json)"
-    test "$daemon_config" = '{"userland-proxy-path":"/usr/bin/docker-proxy"}'
+    tar -tf "$archive" --wildcards "usr/bin/podman" >/dev/null
+    tar -tf "$archive" --wildcards "usr/bin/python3" >/dev/null
+    tar -tf "$archive" --wildcards "usr/bin/uv" >/dev/null
 fi

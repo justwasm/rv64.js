@@ -64,10 +64,7 @@ case "$profile" in
         profile_packages=()
         ;;
     full)
-        profile_packages=(bash tmux vim curl ca-certificates docker podman)
-        if [ "$apk_arch" = x86 ]; then
-            profile_packages=(bash tmux vim curl ca-certificates docker podman)
-        fi
+        profile_packages=(ca-certificates podman python3 uv)
         ;;
     *)
         echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal or full)" >&2
@@ -106,9 +103,9 @@ if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
         add "${packages[@]}"
 fi
 if [ "$profile" = full ]; then
-    test -x "$rootfs/usr/bin/docker-proxy"
-    mkdir -p "$rootfs/etc/docker"
-    printf '%s\n' '{"userland-proxy-path":"/usr/bin/docker-proxy"}' >"$rootfs/etc/docker/daemon.json"
+    test -x "$rootfs/usr/bin/podman"
+    test -x "$rootfs/usr/bin/python3"
+    test -x "$rootfs/usr/bin/uv"
 fi
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
     find -H /target \( -type f -o -type d \) -exec chown "$(id -u):$(id -g)" {} + || true

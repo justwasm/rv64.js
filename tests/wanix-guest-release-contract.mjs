@@ -77,17 +77,17 @@ required(
   "archive verification",
 );
 required(build, "tar -tf \"$archive\" --wildcards \"boot/$kernel_name\" >/dev/null", "archive verification");
-required(build, "tar -tf \"$archive\" --wildcards \"usr/bin/docker-proxy\" >/dev/null", "Docker archive verification");
-required(build, "tar -xOf \"$archive\" etc/docker/daemon.json", "Docker daemon archive verification");
+for (const binary of ["podman", "python3", "uv"]) {
+  required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} archive verification`);
+}
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
 
 const bundle = read("integrations/wanix/build-linux-bundle.sh");
-required(bundle, 'test -x "$rootfs/usr/bin/docker-proxy"', "Docker proxy binary validation");
-required(
-  bundle,
-  "{\"userland-proxy-path\":\"/usr/bin/docker-proxy\"}",
-  "Docker daemon configuration",
-);
+required(bundle, "profile_packages=(ca-certificates podman python3 uv)", "full OCI and Python package set");
+for (const binary of ["podman", "python3", "uv"]) {
+  required(bundle, `test -x "$rootfs/usr/bin/${binary}"`, `${binary} rootfs validation`);
+}
+assert.doesNotMatch(bundle, /profile_packages=.*\b(docker|docker-proxy|dockerd)\b/, "full image must not include Docker");
 required(bundle, ': >"$rootfs/etc/wanix-container"', "container guest marker");
 
 const init = read("integrations/wanix/guest/init");
