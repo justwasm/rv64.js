@@ -33,7 +33,7 @@ case "$profile" in
         rootfs_profile=minimal
         profile_suffix=""
         ;;
-    python|nodejs|golang)
+    crush|python|nodejs|golang)
         kernel_profile=minimal
         rootfs_profile="$profile"
         profile_suffix="-$profile"
@@ -51,7 +51,7 @@ case "$profile" in
         profile_suffix="-container-full"
         ;;
     *)
-        echo "unsupported profile: $profile (expected minimal, python, nodejs, golang, container, or container-full)" >&2
+        echo "unsupported profile: $profile (expected minimal, crush, python, nodejs, golang, container, or container-full)" >&2
         exit 2
         ;;
 esac
@@ -77,6 +77,9 @@ file "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
 archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
 tar -tf "$archive" --wildcards "boot/$kernel_name" >/dev/null
 case "$rootfs_profile" in
+    crush)
+        tar -tf "$archive" --wildcards "usr/local/bin/crush" >/dev/null
+        ;;
     python)
         tar -tf "$archive" --wildcards "usr/bin/python3" >/dev/null
         tar -tf "$archive" --wildcards "usr/bin/uv" >/dev/null

@@ -66,7 +66,7 @@ for (const config of [
 }
 
 const build = read("tools/build-wanix-release-assets.sh");
-for (const profile of ["minimal", "python", "nodejs", "golang", "container", "container-full"]) {
+for (const profile of ["minimal", "crush", "python", "nodejs", "golang", "container", "container-full"]) {
   required(build, `    ${profile})`, "guest build profile");
 }
 required(build, "ALPINE_TAG=3.24", "guest Alpine version");
@@ -79,9 +79,20 @@ required(build, "tar -tf \"$archive\" --wildcards \"boot/$kernel_name\" >/dev/nu
 for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "node", "npm", "go"]) {
   required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} archive verification`);
 }
+required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/crush" >/dev/null', "Crush archive verification");
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
 
 const bundle = read("integrations/wanix/build-linux-bundle.sh");
+required(bundle, "crush_version=v0.94.0", "Crush release version");
+for (const pair of [
+  ["riscv64", "b2798cd2d44312714bb389d3cd3de12fbbd80c74f4b912b635c1855fc2e81676"],
+  ["i386", "2f36756048d3f5ee5f13bb2512492c487b573781e18d4a5afe34a244fc29377c"],
+  ["arm64", "ed2bf9bfa3e248ce917478f247d634ea942597299c2f05233ddbd356a932276a"],
+]) {
+  required(bundle, `crush_arch=${pair[0]}`, `Crush ${pair[0]} archive mapping`);
+  required(bundle, `crush_sha256=${pair[1]}`, `Crush ${pair[0]} archive checksum`);
+}
+required(bundle, 'test -x "$rootfs/usr/local/bin/crush"', "Crush rootfs validation");
 required(bundle, "profile_packages=(python3 uv)", "Python profile package set");
 required(bundle, "profile_packages=(nodejs-current npm)", "Node.js profile package set");
 required(bundle, "profile_packages=(go)", "Go profile package set");
@@ -99,18 +110,21 @@ required(init, 'echo 1 >/proc/sys/net/ipv4/ip_forward', "container IPv4 forwardi
 const makefile = read("integrations/wanix/Makefile");
 for (const archive of [
   "wanix-linux-rv64.tgz",
+  "wanix-linux-rv64-crush.tgz",
   "wanix-linux-rv64-python.tgz",
   "wanix-linux-rv64-nodejs.tgz",
   "wanix-linux-rv64-golang.tgz",
   "wanix-linux-rv64-container.tgz",
   "wanix-linux-rv64-container-full.tgz",
   "wanix-linux-x86.tgz",
+  "wanix-linux-x86-crush.tgz",
   "wanix-linux-x86-python.tgz",
   "wanix-linux-x86-nodejs.tgz",
   "wanix-linux-x86-golang.tgz",
   "wanix-linux-x86-container.tgz",
   "wanix-linux-x86-container-full.tgz",
   "wanix-linux-arm64.tgz",
+  "wanix-linux-arm64-crush.tgz",
   "wanix-linux-arm64-python.tgz",
   "wanix-linux-arm64-nodejs.tgz",
   "wanix-linux-arm64-golang.tgz",
@@ -124,7 +138,7 @@ const releaseWorkflow = read(".github/workflows/release.yml");
 required(releaseWorkflow, 'name: rv64.js and WANIX release', "unified release workflow");
 required(releaseWorkflow, '- "v[0-9]+.[0-9]+.[0-9]+"', "semver release trigger");
 required(releaseWorkflow, "arch: [riscv64, x86, arm64]", "guest workflow architecture matrix");
-required(releaseWorkflow, "profile: [minimal, python, nodejs, golang, container, container-full]", "guest workflow profile matrix");
+required(releaseWorkflow, "profile: [minimal, crush, python, nodejs, golang, container, container-full]", "guest workflow profile matrix");
 required(releaseWorkflow, 'name: Create semver release', "semver release preparation job");
 required(releaseWorkflow, 'needs: prepare-release', "guest release dependency");
 required(releaseWorkflow, 'Publish guest archive immediately', "independent guest archive publication");

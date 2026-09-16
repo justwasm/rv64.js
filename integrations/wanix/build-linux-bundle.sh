@@ -19,6 +19,7 @@ case "$guest_arch" in
     riscv64)
         docker_platform=linux/riscv64
         apk_arch=riscv64
+        crush_arch=riscv64
         go_arch=riscv64
         kernel_attr=virt-kernel-fast
         kernel_name=Image
@@ -28,6 +29,7 @@ case "$guest_arch" in
     x86)
         docker_platform=linux/386
         apk_arch=x86
+        crush_arch=i386
         go_arch=386
         kernel_attr=v86-kernel
         kernel_name=bzImage
@@ -37,6 +39,7 @@ case "$guest_arch" in
     arm64)
         docker_platform=linux/arm64
         apk_arch=aarch64
+        crush_arch=arm64
         go_arch=arm64
         kernel_attr=arm64-kernel
         kernel_name=Image
@@ -63,6 +66,9 @@ case "$profile" in
     minimal)
         profile_packages=()
         ;;
+    crush)
+        profile_packages=()
+        ;;
     python)
         profile_packages=(python3 uv)
         ;;
@@ -76,7 +82,7 @@ case "$profile" in
         profile_packages=(attr ca-certificates podman python3 strace tmux uv)
         ;;
     *)
-        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, python, nodejs, golang, or full)" >&2
+        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, golang, or full)" >&2
         exit 2
         ;;
 esac
@@ -98,6 +104,28 @@ test -n "$kernel"
 mkdir -p "$rootfs"
 "$docker_cmd" export "$container" | tar -C "$rootfs" -xf -
 
+if [ "$profile" = crush ]; then
+    crush_version=v0.94.0
+    case "$crush_arch" in
+        riscv64)
+            crush_sha256=b2798cd2d44312714bb389d3cd3de12fbbd80c74f4b912b635c1855fc2e81676
+            ;;
+        i386)
+            crush_sha256=2f36756048d3f5ee5f13bb2512492c487b573781e18d4a5afe34a244fc29377c
+            ;;
+        arm64)
+            crush_sha256=ed2bf9bfa3e248ce917478f247d634ea942597299c2f05233ddbd356a932276a
+            ;;
+    esac
+    crush_archive="$tmp/crush.tar.gz"
+    crush_stage="$tmp/crush"
+    mkdir -p "$crush_stage" "$rootfs/usr/local/bin"
+    curl -fsSL "https://github.com/justwasm/crush/releases/download/$crush_version/crush_${crush_version}_Linux_${crush_arch}.tar.gz" -o "$crush_archive"
+    printf '%s  %s\n' "$crush_sha256" "$crush_archive" | sha256sum -c -
+    tar -xzf "$crush_archive" --strip-components=1 -C "$crush_stage"
+    install -m 0755 "$crush_stage/crush" "$rootfs/usr/local/bin/crush"
+fi
+
 # Keep the default guest rootfs minimal, matching the existing x86 and RV64
 # archives. Python is an opt-in workload dependency for benchmark images.
 if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
@@ -112,6 +140,9 @@ if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
         add "${packages[@]}"
 fi
 case "$profile" in
+    crush)
+        test -x "$rootfs/usr/local/bin/crush"
+        ;;
     python)
         test -x "$rootfs/usr/bin/python3"
         test -x "$rootfs/usr/bin/uv"
