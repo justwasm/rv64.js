@@ -7713,7 +7713,11 @@ fn emit_vector_direct_guard(
             emit_vector_retain_full_guard(function, layout, state, temps, vlmax);
             function.instruction(&Instruction::I32And);
         }
-        VectorDirect::WholeRegisterMove { destination, source, .. } => {
+        VectorDirect::WholeRegisterMove {
+            destination,
+            source,
+            ..
+        } => {
             // Whole-register moves (vmv1r.v … vmv8r.v) copy 16-byte chunks.
             // Both groups must stay within v0..v31; vector_direct_available
             // already enforces that, so only the alignment check is needed.
@@ -10469,9 +10473,7 @@ fn emit_vector_direct_body(
             destination,
             vtype,
             vl,
-        } => emit_vector_config_immediate_body(
-            function, layout, state, destination, vtype, vl,
-        ),
+        } => emit_vector_config_immediate_body(function, layout, state, destination, vtype, vl),
         VectorDirect::ConfigRetainFull { vtype, vlmax } => {
             // vsetvli x0, x0, vtype: nothing to do once the guard has proved
             // the current and new configs share VLMAX, since both vtype and
@@ -10485,30 +10487,58 @@ fn emit_vector_direct_body(
             register,
             registers,
             ..
-        } => emit_vector_whole_memory_body(
-            function, layout, state, load, register, registers, temps,
-        ),
+        } => {
+            emit_vector_whole_memory_body(function, layout, state, load, register, registers, temps)
+        }
         VectorDirect::WholeRegisterMove {
             destination,
             source,
             registers,
         } => emit_vector_whole_move_body(
-            function, layout, state, destination, source, registers, temps,
+            function,
+            layout,
+            state,
+            destination,
+            source,
+            registers,
+            temps,
         ),
-        VectorDirect::ScalarInsert { destination, source } => {
+        VectorDirect::ScalarInsert {
+            destination,
+            source,
+        } => {
             emit_vector_scalar_insert_body(function, layout, state, destination, source, temps);
         }
-        VectorDirect::ScalarExtract { destination, source } => {
+        VectorDirect::ScalarExtract {
+            destination,
+            source,
+        } => {
             emit_vector_scalar_extract_body(function, layout, state, destination, source, temps);
         }
-        VectorDirect::FloatScalarInsert { destination, source } => {
+        VectorDirect::FloatScalarInsert {
+            destination,
+            source,
+        } => {
             emit_vector_float_scalar_insert_body(
-                function, layout, state, destination, source, temps,
+                function,
+                layout,
+                state,
+                destination,
+                source,
+                temps,
             );
         }
-        VectorDirect::FloatScalarExtract { destination, source } => {
+        VectorDirect::FloatScalarExtract {
+            destination,
+            source,
+        } => {
             emit_vector_float_scalar_extract_body(
-                function, layout, state, destination, source, temps,
+                function,
+                layout,
+                state,
+                destination,
+                source,
+                temps,
             );
         }
     }
@@ -13121,9 +13151,8 @@ mod tests {
                 expected(&region),
                 "{label}: expected decode to produce the named VectorDirect variant"
             );
-            let bytes = emit(&region, layout_for(), None).unwrap_or_else(|e| {
-                panic!("{label}: direct emit failed: {e:?}")
-            });
+            let bytes = emit(&region, layout_for(), None)
+                .unwrap_or_else(|e| panic!("{label}: direct emit failed: {e:?}"));
             wasmparser::Validator::new()
                 .validate_all(&bytes)
                 .unwrap_or_else(|e| panic!("{label}: module must validate: {e:?}"));
@@ -13138,58 +13167,65 @@ mod tests {
         //   0x4280_2557 -> vmv.x.s a0,v8 -> ScalarExtract { dest:10, src:8 }
         //   0x4206_e6d7 -> vmv.s.x v13,a3 -> ScalarInsert { dest:13, src:13 }
         // vsetivli ConfigImmediate cases
-        check(0xcc08_7057, "ConfigImmediate x0", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::ConfigImmediate { destination: 0, .. }),
-                ..
-            })
-        ));
-        check(0x0da0_7557, "ConfigImmediate x10", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::ConfigImmediate { destination: 10, .. }),
-                ..
-            })
-        ));
+        check(0xcc08_7057, "ConfigImmediate x0", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::ConfigImmediate { destination: 0, .. }),
+                    ..
+                })
+            )
+        });
+        check(0x0da0_7557, "ConfigImmediate x10", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::ConfigImmediate {
+                        destination: 10,
+                        ..
+                    }),
+                    ..
+                })
+            )
+        });
         // vsetvli x0,x0 ConfigRetainFull
-        check(0x0c80_7057, "ConfigRetainFull", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::ConfigRetainFull { .. }),
-                ..
-            })
-        ));
+        check(0x0c80_7057, "ConfigRetainFull", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::ConfigRetainFull { .. }),
+                    ..
+                })
+            )
+        });
         // vmv4r.v WholeRegisterMove (vmv1r/vmv2r derived by clearing bits 19-15)
-        check(0x9f01_b457, "WholeRegisterMove vmv4r", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::WholeRegisterMove { registers: 4, .. }),
-                ..
-            })
-        ));
-        check(
-            0x9f01_b457 - (3u32 << 15),
-            "WholeRegisterMove vmv1r",
-            |r| matches!(
+        check(0x9f01_b457, "WholeRegisterMove vmv4r", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::WholeRegisterMove { registers: 4, .. }),
+                    ..
+                })
+            )
+        });
+        check(0x9f01_b457 - (3u32 << 15), "WholeRegisterMove vmv1r", |r| {
+            matches!(
                 r.effects.first(),
                 Some(Effect::Vector {
                     direct: Some(VectorDirect::WholeRegisterMove { registers: 1, .. }),
                     ..
                 })
-            ),
-        );
-        check(
-            0x9f01_b457 - (2u32 << 15),
-            "WholeRegisterMove vmv2r",
-            |r| matches!(
+            )
+        });
+        check(0x9f01_b457 - (2u32 << 15), "WholeRegisterMove vmv2r", |r| {
+            matches!(
                 r.effects.first(),
                 Some(Effect::Vector {
                     direct: Some(VectorDirect::WholeRegisterMove { registers: 2, .. }),
                     ..
                 })
-            ),
-        );
+            )
+        });
         // vlr.v / vsr.v WholeRegisterMemory. The existing ir tests do not
         // cover these directly, but the decode function accepts the same
         // shape via opcode 0x07/0x27 + aux=8 + fields=1 (NF=0). Build the
@@ -13210,36 +13246,44 @@ mod tests {
                 | (mew << 28)
                 | (nf << 29)
         };
-        check(whole_mem(true), "WholeRegisterMemory vlr.v", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::WholeRegisterMemory { load: true, .. }),
-                ..
-            })
-        ));
-        check(whole_mem(false), "WholeRegisterMemory vsr.v", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::WholeRegisterMemory { load: false, .. }),
-                ..
-            })
-        ));
+        check(whole_mem(true), "WholeRegisterMemory vlr.v", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::WholeRegisterMemory { load: true, .. }),
+                    ..
+                })
+            )
+        });
+        check(whole_mem(false), "WholeRegisterMemory vsr.v", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::WholeRegisterMemory { load: false, .. }),
+                    ..
+                })
+            )
+        });
         // vmv.x.s ScalarExtract
-        check(0x4280_2557, "ScalarExtract vmv.x.s", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::ScalarExtract { .. }),
-                ..
-            })
-        ));
+        check(0x4280_2557, "ScalarExtract vmv.x.s", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::ScalarExtract { .. }),
+                    ..
+                })
+            )
+        });
         // vmv.s.x ScalarInsert
-        check(0x4206_e6d7, "ScalarInsert vmv.s.x", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::ScalarInsert { .. }),
-                ..
-            })
-        ));
+        check(0x4206_e6d7, "ScalarInsert vmv.s.x", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::ScalarInsert { .. }),
+                    ..
+                })
+            )
+        });
         // vfmv.f.s / vfmv.s.f encodings derived from the same field layout
         // as the rest of vector_encoding(funct6=0x10, vm=1, vs2, source, format, vd).
         // The FloatScalar* checks use format=1 (extract) and format=5 (insert),
@@ -13248,23 +13292,27 @@ mod tests {
             0x57 | (5u32 << 7) | (1u32 << 12) | (8u32 << 20) | (1u32 << 25) | (0x10u32 << 26);
         let f_scalar_insert: u32 =
             0x57 | (16u32 << 7) | (5u32 << 12) | (4u32 << 15) | (1u32 << 25) | (0x10u32 << 26);
-        check(f_scalar_extract, "FloatScalarExtract vfmv.f.s", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::FloatScalarExtract { .. }),
-                ..
-            })
-        ));
-        check(f_scalar_insert, "FloatScalarInsert vfmv.s.f", |r| matches!(
-            r.effects.first(),
-            Some(Effect::Vector {
-                direct: Some(VectorDirect::FloatScalarInsert { .. }),
-                ..
-            })
-        ));
+        check(f_scalar_extract, "FloatScalarExtract vfmv.f.s", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::FloatScalarExtract { .. }),
+                    ..
+                })
+            )
+        });
+        check(f_scalar_insert, "FloatScalarInsert vfmv.s.f", |r| {
+            matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::FloatScalarInsert { .. }),
+                    ..
+                })
+            )
+        });
     }
 
-        #[test]
+    #[test]
     fn known_vector_configuration_is_legal_and_conservative() {
         let m1_e8 = KnownVectorConfig::decode(0xc0, 16).expect("e8,m1 is legal");
         assert_eq!(m1_e8.vsew, 0);
