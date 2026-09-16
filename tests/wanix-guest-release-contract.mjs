@@ -51,16 +51,18 @@ for (const config of [
   for (const option of [
     "CGROUP_CPUACCT",
     "CGROUP_FREEZER",
-    "CPUSETS",
     "KEYS",
     "NETFILTER_XT_MATCH_ADDRTYPE",
     "NETFILTER_XT_MATCH_CONNTRACK",
     "NETFILTER_XT_MARK",
-    "IP_NF_FILTER",
-    "IP_NF_MANGLE",
-    "IP_NF_RAW",
-    "IP_NF_NAT",
-    "IP_NF_TARGET_MASQUERADE",
+    "NF_NAT_MASQUERADE",
+    "NETFILTER_XT_TARGET_MASQUERADE",
+    "NF_TABLES",
+    "NFT_CT",
+    "NFT_FIB",
+    "NFT_FIB_IPV4",
+    "NFT_MASQ",
+    "NFT_NAT",
   ]) {
     required(source, `  ${option} = yes;`, `${config} container ${option}`);
   }

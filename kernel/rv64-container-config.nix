@@ -74,7 +74,6 @@ with lib.kernel;
   CGROUP_PIDS = yes;
   CGROUP_CPUACCT = yes;
   CGROUP_FREEZER = yes;
-  CPUSETS = yes;
   MEMCG = yes;
   BLK_CGROUP = yes;
   CGROUP_DEVICE = yes;
@@ -93,12 +92,15 @@ with lib.kernel;
   NETFILTER_XT_MARK = yes;
   NF_CONNTRACK = yes;
   NF_NAT = yes;
+  NF_NAT_MASQUERADE = yes;
+  NETFILTER_XT_TARGET_MASQUERADE = yes;
   IP_NF_IPTABLES = yes;
-  IP_NF_FILTER = yes;
-  IP_NF_MANGLE = yes;
-  IP_NF_RAW = yes;
-  IP_NF_NAT = yes;
-  IP_NF_TARGET_MASQUERADE = yes;
+  NF_TABLES = yes;
+  NFT_CT = yes;
+  NFT_FIB = yes;
+  NFT_FIB_IPV4 = yes;
+  NFT_MASQ = yes;
+  NFT_NAT = yes;
 
   # Console and dynamic /dev population. rv64.js implements one ns16550 UART.
   TTY = yes;
