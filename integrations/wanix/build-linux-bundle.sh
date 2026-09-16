@@ -105,6 +105,11 @@ if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
         --repository "https://dl-cdn.alpinelinux.org/alpine/v${alpine_tag%.*}/community" \
         add "${packages[@]}"
 fi
+if [ "$profile" = full ]; then
+    test -x "$rootfs/usr/bin/docker-proxy"
+    mkdir -p "$rootfs/etc/docker"
+    printf '%s\n' '{"userland-proxy-path":"/usr/bin/docker-proxy"}' >"$rootfs/etc/docker/daemon.json"
+fi
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
     find -H /target \( -type f -o -type d \) -exec chown "$(id -u):$(id -g)" {} + || true
 

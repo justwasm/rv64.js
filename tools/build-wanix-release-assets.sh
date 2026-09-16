@@ -69,5 +69,10 @@ ALPINE_TAG=3.24 \
   "$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
 
 file "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
-tar -tf "$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz" \
-  --wildcards "boot/$kernel_name" >/dev/null
+archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
+tar -tf "$archive" --wildcards "boot/$kernel_name" >/dev/null
+if [ "$rootfs_profile" = full ]; then
+    tar -tf "$archive" --wildcards "usr/bin/docker-proxy" >/dev/null
+    daemon_config="$(tar -xOf "$archive" etc/docker/daemon.json)"
+    test "$daemon_config" = '{"userland-proxy-path":"/usr/bin/docker-proxy"}'
+fi

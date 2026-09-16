@@ -47,9 +47,23 @@ for (const profile of ["minimal", "container", "container-full"]) {
   required(build, `    ${profile})`, "guest build profile");
 }
 required(build, "ALPINE_TAG=3.24", "guest Alpine version");
-required(build, "tar -tf \"$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz\"", "archive verification");
-required(build, "--wildcards \"boot/$kernel_name\" >/dev/null", "archive verification");
+required(
+  build,
+  'archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"',
+  "archive verification",
+);
+required(build, "tar -tf \"$archive\" --wildcards \"boot/$kernel_name\" >/dev/null", "archive verification");
+required(build, "tar -tf \"$archive\" --wildcards \"usr/bin/docker-proxy\" >/dev/null", "Docker archive verification");
+required(build, "tar -xOf \"$archive\" etc/docker/daemon.json", "Docker daemon archive verification");
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
+
+const bundle = read("integrations/wanix/build-linux-bundle.sh");
+required(bundle, 'test -x "$rootfs/usr/bin/docker-proxy"', "Docker proxy binary validation");
+required(
+  bundle,
+  "{\"userland-proxy-path\":\"/usr/bin/docker-proxy\"}",
+  "Docker daemon configuration",
+);
 
 const makefile = read("integrations/wanix/Makefile");
 for (const archive of [
