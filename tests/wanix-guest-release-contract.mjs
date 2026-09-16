@@ -91,6 +91,9 @@ required(releaseWorkflow, 'Publish guest archive immediately', "independent gues
 required(releaseWorkflow, 'gh release upload "$release_tag"', "guest workflow release upload");
 required(releaseWorkflow, 'name: Publish WANIX rv64 archive', "rv64 archive publish job");
 required(releaseWorkflow, 'needs: [prepare-release, build-rv64-archive]', "rv64 archive publish dependency");
+required(releaseWorkflow, 'contents: write', "guest build job needs write scope for gh release upload");
+required(releaseWorkflow, 'permissions:\n      contents: write\n    strategy:', "guest build job declares explicit write permission");
+required(releaseWorkflow, 'gh release edit "$release_tag" \\\n                --repo "$GITHUB_REPOSITORY" \\\n                --draft=false', "prepare-release promotes the auto-created draft to published");
 required(releaseWorkflow, 'gh release upload "$release_tag" target/release/rv64.tgz', "rv64 archive release asset");
 required(releaseWorkflow, 'needs: [build-library, publish-rv64-archive]', "library publish dependency");
 required(releaseWorkflow, '"rv64.js-${release_tag#v}.tar.gz"', "library release asset");

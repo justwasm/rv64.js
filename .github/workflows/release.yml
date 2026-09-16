@@ -43,6 +43,17 @@ jobs:
               --verify-tag \
               --generate-notes \
               --title "rv64.js and WANIX $release_tag"
+          else
+            # Pushing a semver tag auto-creates a draft release on GitHub. If
+            # that auto-draft exists, promote it to published so downstream
+            # upload steps see a fully realised release record. Without this,
+            # gh release upload from jobs that run in parallel can race the
+            # release-record visibility and report "release not found".
+            if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' | grep -q true; then
+              gh release edit "$release_tag" \
+                --repo "$GITHUB_REPOSITORY" \
+                --draft=false
+            fi
           fi
 
   build-library:
@@ -213,6 +224,11 @@ jobs:
     needs: prepare-release
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    # The workflow-level permissions default to contents: read, but the
+    # embedded "Publish guest archive immediately" step uploads the freshly
+    # built archive via gh release upload, which requires write scope.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
