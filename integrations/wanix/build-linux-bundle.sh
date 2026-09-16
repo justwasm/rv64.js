@@ -63,11 +63,20 @@ case "$profile" in
     minimal)
         profile_packages=()
         ;;
+    python)
+        profile_packages=(python3 uv)
+        ;;
+    nodejs)
+        profile_packages=(nodejs-current npm)
+        ;;
+    golang)
+        profile_packages=(go)
+        ;;
     full)
         profile_packages=(attr ca-certificates podman python3 strace tmux uv)
         ;;
     *)
-        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal or full)" >&2
+        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, python, nodejs, golang, or full)" >&2
         exit 2
         ;;
 esac
@@ -102,14 +111,27 @@ if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
         --repository "https://dl-cdn.alpinelinux.org/alpine/v${alpine_tag%.*}/community" \
         add "${packages[@]}"
 fi
-if [ "$profile" = full ]; then
-    test -x "$rootfs/usr/bin/getfattr"
-    test -x "$rootfs/usr/bin/podman"
-    test -x "$rootfs/usr/bin/python3"
-    test -x "$rootfs/usr/bin/strace"
-    test -x "$rootfs/usr/bin/tmux"
-    test -x "$rootfs/usr/bin/uv"
-fi
+case "$profile" in
+    python)
+        test -x "$rootfs/usr/bin/python3"
+        test -x "$rootfs/usr/bin/uv"
+        ;;
+    nodejs)
+        test -x "$rootfs/usr/bin/node"
+        test -x "$rootfs/usr/bin/npm"
+        ;;
+    golang)
+        test -x "$rootfs/usr/bin/go"
+        ;;
+    full)
+        test -x "$rootfs/usr/bin/getfattr"
+        test -x "$rootfs/usr/bin/podman"
+        test -x "$rootfs/usr/bin/python3"
+        test -x "$rootfs/usr/bin/strace"
+        test -x "$rootfs/usr/bin/tmux"
+        test -x "$rootfs/usr/bin/uv"
+        ;;
+esac
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
     find -H /target \( -type f -o -type d \) -exec chown "$(id -u):$(id -g)" {} + || true
 

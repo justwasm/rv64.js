@@ -33,6 +33,11 @@ case "$profile" in
         rootfs_profile=minimal
         profile_suffix=""
         ;;
+    python|nodejs|golang)
+        kernel_profile=minimal
+        rootfs_profile="$profile"
+        profile_suffix="-$profile"
+        ;;
     container)
         kernel_profile=container
         rootfs_profile=minimal
@@ -46,7 +51,7 @@ case "$profile" in
         profile_suffix="-container-full"
         ;;
     *)
-        echo "unsupported profile: $profile" >&2
+        echo "unsupported profile: $profile (expected minimal, python, nodejs, golang, container, or container-full)" >&2
         exit 2
         ;;
 esac
@@ -71,11 +76,24 @@ ALPINE_TAG=3.24 \
 file "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
 archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
 tar -tf "$archive" --wildcards "boot/$kernel_name" >/dev/null
-if [ "$rootfs_profile" = full ]; then
-    tar -tf "$archive" --wildcards "usr/bin/getfattr" >/dev/null
-    tar -tf "$archive" --wildcards "usr/bin/podman" >/dev/null
-    tar -tf "$archive" --wildcards "usr/bin/python3" >/dev/null
-    tar -tf "$archive" --wildcards "usr/bin/strace" >/dev/null
-    tar -tf "$archive" --wildcards "usr/bin/tmux" >/dev/null
-    tar -tf "$archive" --wildcards "usr/bin/uv" >/dev/null
-fi
+case "$rootfs_profile" in
+    python)
+        tar -tf "$archive" --wildcards "usr/bin/python3" >/dev/null
+        tar -tf "$archive" --wildcards "usr/bin/uv" >/dev/null
+        ;;
+    nodejs)
+        tar -tf "$archive" --wildcards "usr/bin/node" >/dev/null
+        tar -tf "$archive" --wildcards "usr/bin/npm" >/dev/null
+        ;;
+    golang)
+        tar -tf "$archive" --wildcards "usr/bin/go" >/dev/null
+        ;;
+    full)
+        tar -tf "$archive" --wildcards "usr/bin/getfattr" >/dev/null
+        tar -tf "$archive" --wildcards "usr/bin/podman" >/dev/null
+        tar -tf "$archive" --wildcards "usr/bin/python3" >/dev/null
+        tar -tf "$archive" --wildcards "usr/bin/strace" >/dev/null
+        tar -tf "$archive" --wildcards "usr/bin/tmux" >/dev/null
+        tar -tf "$archive" --wildcards "usr/bin/uv" >/dev/null
+        ;;
+esac

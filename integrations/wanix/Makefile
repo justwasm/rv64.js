@@ -95,6 +95,15 @@ LINUX_COMMON_DEPS := build-linux-bundle.sh wanix-wexec-js.patch wanix-wexec-poll
 $(DIST)/wanix-linux-rv64.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/rv64-config.nix
 	WANIX_GUEST_ARCH=riscv64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=minimal ./build-linux-bundle.sh $@
 
+$(DIST)/wanix-linux-rv64-python.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/rv64-config.nix
+	WANIX_GUEST_ARCH=riscv64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=python ./build-linux-bundle.sh $@
+
+$(DIST)/wanix-linux-rv64-nodejs.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/rv64-config.nix
+	WANIX_GUEST_ARCH=riscv64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=nodejs ./build-linux-bundle.sh $@
+
+$(DIST)/wanix-linux-rv64-golang.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/rv64-config.nix
+	WANIX_GUEST_ARCH=riscv64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=golang ./build-linux-bundle.sh $@
+
 $(DIST)/wanix-linux-rv64-container.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/rv64-container-config.nix
 	WANIX_GUEST_ARCH=riscv64 WANIX_KERNEL_PROFILE=container WANIX_ROOTFS_PROFILE=minimal ./build-linux-bundle.sh $@
 
@@ -103,6 +112,15 @@ $(DIST)/wanix-linux-rv64-container-full.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.
 
 $(DIST)/wanix-linux-x86.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/x86-v86-config.nix
 	WANIX_GUEST_ARCH=x86 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=minimal ./build-linux-bundle.sh $@
+
+$(DIST)/wanix-linux-x86-python.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/x86-v86-config.nix
+	WANIX_GUEST_ARCH=x86 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=python ./build-linux-bundle.sh $@
+
+$(DIST)/wanix-linux-x86-nodejs.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/x86-v86-config.nix
+	WANIX_GUEST_ARCH=x86 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=nodejs ./build-linux-bundle.sh $@
+
+$(DIST)/wanix-linux-x86-golang.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/x86-v86-config.nix
+	WANIX_GUEST_ARCH=x86 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=golang ./build-linux-bundle.sh $@
 
 $(DIST)/wanix-linux-x86-container.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/x86-v86-container-config.nix
 	WANIX_GUEST_ARCH=x86 WANIX_KERNEL_PROFILE=container WANIX_ROOTFS_PROFILE=minimal ./build-linux-bundle.sh $@
@@ -113,6 +131,15 @@ $(DIST)/wanix-linux-x86-container-full.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/fla
 $(DIST)/wanix-linux-arm64.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/arm64-config.nix
 	WANIX_GUEST_ARCH=arm64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=minimal ./build-linux-bundle.sh $@
 
+$(DIST)/wanix-linux-arm64-python.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/arm64-config.nix
+	WANIX_GUEST_ARCH=arm64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=python ./build-linux-bundle.sh $@
+
+$(DIST)/wanix-linux-arm64-nodejs.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/arm64-config.nix
+	WANIX_GUEST_ARCH=arm64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=nodejs ./build-linux-bundle.sh $@
+
+$(DIST)/wanix-linux-arm64-golang.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/arm64-config.nix
+	WANIX_GUEST_ARCH=arm64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=golang ./build-linux-bundle.sh $@
+
 $(DIST)/wanix-linux-arm64-container.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/arm64-container-config.nix
 	WANIX_GUEST_ARCH=arm64 WANIX_KERNEL_PROFILE=container WANIX_ROOTFS_PROFILE=minimal ./build-linux-bundle.sh $@
 
@@ -121,6 +148,15 @@ $(DIST)/wanix-linux-arm64-container-full.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/f
 
 linux-rv64: $(DIST)/wanix-linux-rv64.tgz
 .PHONY: linux-rv64
+
+linux-rv64-python: $(DIST)/wanix-linux-rv64-python.tgz
+.PHONY: linux-rv64-python
+
+linux-rv64-nodejs: $(DIST)/wanix-linux-rv64-nodejs.tgz
+.PHONY: linux-rv64-nodejs
+
+linux-rv64-golang: $(DIST)/wanix-linux-rv64-golang.tgz
+.PHONY: linux-rv64-golang
 
 linux-rv64-container: $(DIST)/wanix-linux-rv64-container.tgz
 .PHONY: linux-rv64-container
@@ -131,6 +167,15 @@ linux-rv64-container-full: $(DIST)/wanix-linux-rv64-container-full.tgz
 linux-x86: $(DIST)/wanix-linux-x86.tgz
 .PHONY: linux-x86
 
+linux-x86-python: $(DIST)/wanix-linux-x86-python.tgz
+.PHONY: linux-x86-python
+
+linux-x86-nodejs: $(DIST)/wanix-linux-x86-nodejs.tgz
+.PHONY: linux-x86-nodejs
+
+linux-x86-golang: $(DIST)/wanix-linux-x86-golang.tgz
+.PHONY: linux-x86-golang
+
 linux-x86-container: $(DIST)/wanix-linux-x86-container.tgz
 .PHONY: linux-x86-container
 
@@ -139,6 +184,15 @@ linux-x86-container-full: $(DIST)/wanix-linux-x86-container-full.tgz
 
 linux-arm64: $(DIST)/wanix-linux-arm64.tgz
 .PHONY: linux-arm64
+
+linux-arm64-python: $(DIST)/wanix-linux-arm64-python.tgz
+.PHONY: linux-arm64-python
+
+linux-arm64-nodejs: $(DIST)/wanix-linux-arm64-nodejs.tgz
+.PHONY: linux-arm64-nodejs
+
+linux-arm64-golang: $(DIST)/wanix-linux-arm64-golang.tgz
+.PHONY: linux-arm64-golang
 
 linux-arm64-container: $(DIST)/wanix-linux-arm64-container.tgz
 .PHONY: linux-arm64-container
