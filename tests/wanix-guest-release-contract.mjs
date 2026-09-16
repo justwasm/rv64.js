@@ -85,9 +85,14 @@ required(releaseWorkflow, 'name: rv64.js and WANIX release', "unified release wo
 required(releaseWorkflow, '- "v[0-9]+.[0-9]+.[0-9]+"', "semver release trigger");
 required(releaseWorkflow, "arch: [riscv64, x86, arm64]", "guest workflow architecture matrix");
 required(releaseWorkflow, "profile: [minimal, container, container-full]", "guest workflow profile matrix");
-required(releaseWorkflow, 'test "${#assets[@]}" -eq 9', "guest workflow archive count");
+required(releaseWorkflow, 'name: Create semver release', "semver release preparation job");
+required(releaseWorkflow, 'needs: prepare-release', "guest release dependency");
+required(releaseWorkflow, 'Publish guest archive immediately', "independent guest archive publication");
 required(releaseWorkflow, 'gh release upload "$release_tag"', "guest workflow release upload");
-required(releaseWorkflow, 'target/release/rv64.tgz', "rv64 archive release asset");
+required(releaseWorkflow, 'name: Publish WANIX rv64 archive', "rv64 archive publish job");
+required(releaseWorkflow, 'needs: [prepare-release, build-rv64-archive]', "rv64 archive publish dependency");
+required(releaseWorkflow, 'gh release upload "$release_tag" target/release/rv64.tgz', "rv64 archive release asset");
+required(releaseWorkflow, 'needs: [build-library, publish-rv64-archive]', "library publish dependency");
 required(releaseWorkflow, '"rv64.js-${release_tag#v}.tar.gz"', "library release asset");
 assert.doesNotMatch(releaseWorkflow, /wanix-(guest|rv64)-[^\n]*tag/i, "legacy WANIX release tag family");
 

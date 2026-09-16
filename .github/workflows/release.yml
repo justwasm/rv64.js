@@ -19,6 +19,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare-release:
+    name: Create semver release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Validate and create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "tag must be an exact semver such as v0.1.0" >&2
+            exit 2
+          fi
+          if ! gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$release_tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --generate-notes \
+              --title "rv64.js and WANIX $release_tag"
+          fi
+
   build-library:
     name: Build rv64.js library
     runs-on: ubuntu-latest
@@ -122,9 +148,32 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish-core:
-    name: Publish rv64.js and WANIX rv64 archive
-    needs: [build-library, build-rv64-archive]
+  publish-rv64-archive:
+    name: Publish WANIX rv64 archive
+    needs: [prepare-release, build-rv64-archive]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wanix-rv64-archive
+          path: target/release
+
+      - name: Publish rv64.tgz immediately
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          gh release upload "$release_tag" target/release/rv64.tgz \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish-library:
+    name: Publish rv64.js library assets
+    needs: [build-library, publish-rv64-archive]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -136,40 +185,32 @@ jobs:
           name: library-assets
           path: target/release
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: wanix-rv64-archive
-          path: target/release
-
-      - name: Assemble and verify core release payload
+      - name: Assemble and verify library release payload
         shell: bash
         run: |
           release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
           cd target/release
           sha256sum rv64.js rv64.d.ts rv64.worker.js rv64_wasm.wasm \
-            "rv64.js-${release_tag#v}.tar.gz" rv64.tgz > SHA256SUMS
+            "rv64.js-${release_tag#v}.tar.gz" > SHA256SUMS
 
-      - name: Publish core release assets
+      - name: Publish library release assets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
-          gh release create "$release_tag" \
+          gh release upload "$release_tag" \
             target/release/SHA256SUMS \
             target/release/rv64.js \
             target/release/rv64.d.ts \
             target/release/rv64.worker.js \
             target/release/rv64_wasm.wasm \
             "target/release/rv64.js-${release_tag#v}.tar.gz" \
-            target/release/rv64.tgz \
-            --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --generate-notes \
-            --title "rv64.js and WANIX $release_tag"
+            --repo "$GITHUB_REPOSITORY" --clobber
 
   build-wanix-guests:
     name: Build ${{ matrix.arch }}-${{ matrix.profile }} guest
+    needs: prepare-release
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
@@ -206,36 +247,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish-guests:
-    name: Publish WANIX guest archives
-    needs: [publish-core, build-wanix-guests]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: target/wanix-guests
-          pattern: wanix-*
-          merge-multiple: true
-
-      - name: Assemble and verify guest release payload
-        shell: bash
-        run: |
-          shopt -s nullglob
-          assets=(target/wanix-guests/wanix-linux-*.tgz)
-          test "${#assets[@]}" -eq 9
-          sha256sum "${assets[@]}" | tee target/wanix-guests/WANIX_GUESTS_SHA256SUMS
-
-      - name: Publish guest release assets
+      - name: Publish guest archive immediately
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
           gh release upload "$release_tag" \
-            target/wanix-guests/wanix-linux-*.tgz \
-            target/wanix-guests/WANIX_GUESTS_SHA256SUMS \
+            target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz \
             --repo "$GITHUB_REPOSITORY" --clobber

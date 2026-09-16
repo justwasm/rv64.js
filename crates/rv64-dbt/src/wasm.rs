@@ -7695,15 +7695,68 @@ fn emit_vector_direct_guard(
                 function.instruction(&Instruction::I32And);
             }
         }
-        VectorDirect::WholeRegisterMemory { .. }
-        | VectorDirect::ConfigImmediate { .. }
-        | VectorDirect::ConfigRetainFull { .. }
-        | VectorDirect::WholeRegisterMove { .. }
-        | VectorDirect::ScalarExtract { .. }
-        | VectorDirect::ScalarInsert { .. }
-        | VectorDirect::FloatScalarInsert { .. }
-        | VectorDirect::FloatScalarExtract { .. } => {
-            unreachable!("whole-register operation reached configured guard")
+        VectorDirect::ConfigImmediate { destination, .. } => {
+            // The destination write to x[rd] only happens when rd != 0; rd=0
+            // discards vl (architecturally still computed). Validate the
+            // register alignment when a real destination exists.
+            if destination != 0 {
+                emit_vector_group_alignment(function, destination, temps);
+            }
+            // No extra checks: vector_direct_available already enforces legal
+            // vtype + the right SEW/LMUL pair for this machine.
+        }
+        VectorDirect::ConfigRetainFull { vlmax, .. } => {
+            // vsetvli x0, x0, vtype must leave vtype and vl untouched. The
+            // upstream guard checks the vtype bits are legal AND that the new
+            // vtype shares VLMAX with the current one. We re-verify here so
+            // the host SIMD path stays inside a single guard contract.
+            emit_vector_retain_full_guard(function, layout, state, temps, vlmax);
+            function.instruction(&Instruction::I32And);
+        }
+        VectorDirect::WholeRegisterMove { destination, source, .. } => {
+            // Whole-register moves (vmv1r.v … vmv8r.v) copy 16-byte chunks.
+            // Both groups must stay within v0..v31; vector_direct_available
+            // already enforces that, so only the alignment check is needed.
+            emit_vector_group_alignment(function, destination, temps);
+            emit_vector_group_alignment(function, source, temps);
+        }
+        VectorDirect::WholeRegisterMemory { register, base, .. } => {
+            // vlr.v / vsr.v whole-register loads + stores share the unit-stride
+            // memory guard once we know the group shape.
+            emit_vector_group_alignment(function, register, temps);
+            emit_vector_group_alignment(function, base, temps);
+            emit_vector_memory_guard(
+                function,
+                layout,
+                // load bit is irrelevant for the alignment guard itself; the
+                // body routes through emit_vector_whole_memory_body which
+                // checks the direction internally.
+                true,
+                None,
+                register,
+                base,
+                temps,
+                fractional_lmul,
+                None,
+                address_preloaded,
+                false,
+            );
+        }
+        VectorDirect::ScalarInsert { .. } => {
+            // destination is a vector register (no extra alignment check:
+            // vector_direct_available requires the group fit), source is an
+            // x register (no vector alignment applies).
+        }
+        VectorDirect::ScalarExtract { .. } => {
+            // destination is an x register (always scalar, no alignment);
+            // source is a vector register (vector_direct_available ensures
+            // the group fits).
+        }
+        VectorDirect::FloatScalarInsert { .. } => {
+            emit_vector_float_width_guard(function, layout, temps);
+        }
+        VectorDirect::FloatScalarExtract { .. } => {
+            emit_vector_float_width_guard(function, layout, temps);
         }
     }
 
@@ -10412,15 +10465,51 @@ fn emit_vector_direct_body(
                 function.instruction(&Instruction::End);
             }
         }
-        VectorDirect::WholeRegisterMemory { .. }
-        | VectorDirect::ConfigImmediate { .. }
-        | VectorDirect::ConfigRetainFull { .. }
-        | VectorDirect::WholeRegisterMove { .. }
-        | VectorDirect::ScalarExtract { .. }
-        | VectorDirect::ScalarInsert { .. }
-        | VectorDirect::FloatScalarInsert { .. }
-        | VectorDirect::FloatScalarExtract { .. } => {
-            unreachable!("whole-register operation reached configured lane path")
+        VectorDirect::ConfigImmediate {
+            destination,
+            vtype,
+            vl,
+        } => emit_vector_config_immediate_body(
+            function, layout, state, destination, vtype, vl,
+        ),
+        VectorDirect::ConfigRetainFull { vtype, vlmax } => {
+            // vsetvli x0, x0, vtype: nothing to do once the guard has proved
+            // the current and new configs share VLMAX, since both vtype and
+            // vl already equal the requested values. Re-write the same values
+            // so emit_vector_direct_finish's dirty flags + counters stay
+            // consistent with every other config-touching instruction.
+            emit_vector_config_immediate_body(function, layout, state, 0, vtype, vlmax);
+        }
+        VectorDirect::WholeRegisterMemory {
+            load,
+            register,
+            registers,
+            ..
+        } => emit_vector_whole_memory_body(
+            function, layout, state, load, register, registers, temps,
+        ),
+        VectorDirect::WholeRegisterMove {
+            destination,
+            source,
+            registers,
+        } => emit_vector_whole_move_body(
+            function, layout, state, destination, source, registers, temps,
+        ),
+        VectorDirect::ScalarInsert { destination, source } => {
+            emit_vector_scalar_insert_body(function, layout, state, destination, source, temps);
+        }
+        VectorDirect::ScalarExtract { destination, source } => {
+            emit_vector_scalar_extract_body(function, layout, state, destination, source, temps);
+        }
+        VectorDirect::FloatScalarInsert { destination, source } => {
+            emit_vector_float_scalar_insert_body(
+                function, layout, state, destination, source, temps,
+            );
+        }
+        VectorDirect::FloatScalarExtract { destination, source } => {
+            emit_vector_float_scalar_extract_body(
+                function, layout, state, destination, source, temps,
+            );
         }
     }
 
@@ -12990,6 +13079,192 @@ mod tests {
     }
 
     #[test]
+    fn direct_vector_body_lowers_guard_approved_variants() {
+        // Regression test for the round-17 "RuntimeError: unreachable" trap.
+        // emit_vector_direct_body() and emit_vector_direct_guard() used to
+        // have a single catch-all unreachable!() for these eight VectorDirect
+        // variants even though vector_direct_available() had approved them;
+        // any hot guest PC executing vsetvli / vmv.r / vmv.s / etc. then
+        // crashed the wasm module. The body helpers all already existed; the
+        // fix wires them through the dispatcher arms and adds minimal guard
+        // checks. This test drives each guard-approved variant through the
+        // public emit() pipeline so any future reintroduction of an arm
+        // mismatch fails fast.
+
+        let layout_for = || {
+            let mut layout = JitLayout::bare();
+            layout.mem = Some((4096, 65536));
+            layout.vector = Some(VectorCapability::User);
+            layout.vector_state = Some(VectorStateLayout {
+                regs_base: 0x20_000,
+                vl_addr: 0x20_200,
+                vtype_addr: 0x20_208,
+                vstart_addr: 0x20_210,
+                simd_count_addr: 0x20_218,
+            });
+            layout
+        };
+
+        let build = |insn: u32| {
+            let mut builder = Builder::new(0x1000);
+            builder.vector(insn, 0x1000, 0x1004, 0);
+            let next = builder.const_i64(0x1004, 0x1000);
+            builder.finish(0x1004, next, 1, ExitKind::Dispatch)
+        };
+
+        // Helper: confirm the IR carries the variant we expect, then emit
+        // the JIT and validate the resulting module. Either step would have
+        // panicked under the pre-fix code.
+        let check = |insn: u32, label: &str, expected: fn(&crate::ir::Region) -> bool| {
+            let region = build(insn);
+            assert!(
+                expected(&region),
+                "{label}: expected decode to produce the named VectorDirect variant"
+            );
+            let bytes = emit(&region, layout_for(), None).unwrap_or_else(|e| {
+                panic!("{label}: direct emit failed: {e:?}")
+            });
+            wasmparser::Validator::new()
+                .validate_all(&bytes)
+                .unwrap_or_else(|e| panic!("{label}: module must validate: {e:?}"));
+        };
+
+        // Encodings lifted from the existing ir::decode tests so the exact
+        // VectorDirect variant is known to match what we expect.
+        //   0xcc08_7057 -> vsetivli x0,16,e8,m1,ta,ma -> ConfigImmediate { dest:0, vtype:0xc0, vl:16 }
+        //   0x0da0_7557 -> vsetivli x10,8,e8,m1,ta,ma -> ConfigImmediate { dest:10, vtype:0xda, vl:8 }
+        //   0x0c80_7057 -> vsetvli x0,x0,e8,m1,ta,ma -> ConfigRetainFull { vtype:0xc8, vlmax:8 }
+        //   0x9f01_b457 -> vmv4r.v v8,v16 -> WholeRegisterMove { dest:8, src:16, regs:4 }
+        //   0x4280_2557 -> vmv.x.s a0,v8 -> ScalarExtract { dest:10, src:8 }
+        //   0x4206_e6d7 -> vmv.s.x v13,a3 -> ScalarInsert { dest:13, src:13 }
+        // vsetivli ConfigImmediate cases
+        check(0xcc08_7057, "ConfigImmediate x0", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::ConfigImmediate { destination: 0, .. }),
+                ..
+            })
+        ));
+        check(0x0da0_7557, "ConfigImmediate x10", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::ConfigImmediate { destination: 10, .. }),
+                ..
+            })
+        ));
+        // vsetvli x0,x0 ConfigRetainFull
+        check(0x0c80_7057, "ConfigRetainFull", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::ConfigRetainFull { .. }),
+                ..
+            })
+        ));
+        // vmv4r.v WholeRegisterMove (vmv1r/vmv2r derived by clearing bits 19-15)
+        check(0x9f01_b457, "WholeRegisterMove vmv4r", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::WholeRegisterMove { registers: 4, .. }),
+                ..
+            })
+        ));
+        check(
+            0x9f01_b457 - (3u32 << 15),
+            "WholeRegisterMove vmv1r",
+            |r| matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::WholeRegisterMove { registers: 1, .. }),
+                    ..
+                })
+            ),
+        );
+        check(
+            0x9f01_b457 - (2u32 << 15),
+            "WholeRegisterMove vmv2r",
+            |r| matches!(
+                r.effects.first(),
+                Some(Effect::Vector {
+                    direct: Some(VectorDirect::WholeRegisterMove { registers: 2, .. }),
+                    ..
+                })
+            ),
+        );
+        // vlr.v / vsr.v WholeRegisterMemory. The existing ir tests do not
+        // cover these directly, but the decode function accepts the same
+        // shape via opcode 0x07/0x27 + aux=8 + fields=1 (NF=0). Build the
+        // instruction explicitly so we can pin the exact variant we expect.
+        let whole_mem = |load: bool| -> u32 {
+            let op: u32 = if load { 0x07 } else { 0x27 };
+            let nf: u32 = 0;
+            let mew: u32 = 0;
+            let mop: u32 = 0;
+            let width: u32 = 0;
+            op
+                | (8u32 << 7)        // vd = v8
+                | (width << 12)
+                | (u32::from(9u8) << 15) // base = x9
+                | (8u32 << 20)       // aux = 8 (whole-register marker)
+                | (1u32 << 25)       // vm = 1 (unmasked)
+                | (mop << 26)
+                | (mew << 28)
+                | (nf << 29)
+        };
+        check(whole_mem(true), "WholeRegisterMemory vlr.v", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::WholeRegisterMemory { load: true, .. }),
+                ..
+            })
+        ));
+        check(whole_mem(false), "WholeRegisterMemory vsr.v", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::WholeRegisterMemory { load: false, .. }),
+                ..
+            })
+        ));
+        // vmv.x.s ScalarExtract
+        check(0x4280_2557, "ScalarExtract vmv.x.s", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::ScalarExtract { .. }),
+                ..
+            })
+        ));
+        // vmv.s.x ScalarInsert
+        check(0x4206_e6d7, "ScalarInsert vmv.s.x", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::ScalarInsert { .. }),
+                ..
+            })
+        ));
+        // vfmv.f.s / vfmv.s.f encodings derived from the same field layout
+        // as the rest of vector_encoding(funct6=0x10, vm=1, vs2, source, format, vd).
+        // The FloatScalar* checks use format=1 (extract) and format=5 (insert),
+        // mirroring the existing ir test cases.
+        let f_scalar_extract: u32 =
+            0x57 | (5u32 << 7) | (1u32 << 12) | (8u32 << 20) | (1u32 << 25) | (0x10u32 << 26);
+        let f_scalar_insert: u32 =
+            0x57 | (16u32 << 7) | (5u32 << 12) | (4u32 << 15) | (1u32 << 25) | (0x10u32 << 26);
+        check(f_scalar_extract, "FloatScalarExtract vfmv.f.s", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::FloatScalarExtract { .. }),
+                ..
+            })
+        ));
+        check(f_scalar_insert, "FloatScalarInsert vfmv.s.f", |r| matches!(
+            r.effects.first(),
+            Some(Effect::Vector {
+                direct: Some(VectorDirect::FloatScalarInsert { .. }),
+                ..
+            })
+        ));
+    }
+
+        #[test]
     fn known_vector_configuration_is_legal_and_conservative() {
         let m1_e8 = KnownVectorConfig::decode(0xc0, 16).expect("e8,m1 is legal");
         assert_eq!(m1_e8.vsew, 0);

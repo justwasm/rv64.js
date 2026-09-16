@@ -59,7 +59,7 @@ func parseFlags(args []string) (config, error) {
 	// from <wanix-vm netdev>), the adapter switches the emulator to the vnet
 	// wsproxy tunnel instead — same as the v86 plugin — and the guest should
 	// NOT hardcode the fetch proxy.
-	cmdline := "console=hvc0 loglevel=3 init=/bin/init rw root=host9p rootfstype=9p rootflags=trans=virtio,version=9p2000.L,cache=none,msize=131072"
+	cmdline := "console=hvc0 loglevel=3 init=/bin/init rw root=host9p rootfstype=9p rootflags=trans=virtio,version=9p2000.L,cache=loose,access=any,msize=131072"
 	if netdev == "" {
 		cmdline += " rv64.network=fetch"
 	}
