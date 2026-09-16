@@ -105,7 +105,7 @@ jobs:
         working-directory: integrations/wanix
         run: |
           tar -czf dist/rv64.tgz -C dist rv64-vm.wasm rv64_wasm.wasm \
-            -C ../../web rv64.js
+            -C ../../../web rv64.js
 
       - name: Inspect archive contents
         working-directory: integrations/wanix
