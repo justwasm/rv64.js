@@ -78,10 +78,7 @@ with lib.kernel;
   IP_NF_IPTABLES = yes;
   NF_TABLES = yes;
   NFT_CT = yes;
-  NFT_FIB = yes;
-  NFT_FIB_IPV4 = yes;
   NFT_MASQ = yes;
-  NFT_NAT = yes;
 
   BLK_DEV_INITRD = yes;
   DEVTMPFS = yes;

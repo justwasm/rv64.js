@@ -59,10 +59,7 @@ for (const config of [
     "NETFILTER_XT_TARGET_MASQUERADE",
     "NF_TABLES",
     "NFT_CT",
-    "NFT_FIB",
-    "NFT_FIB_IPV4",
     "NFT_MASQ",
-    "NFT_NAT",
   ]) {
     required(source, `  ${option} = yes;`, `${config} container ${option}`);
   }
