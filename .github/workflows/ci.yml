@@ -40,18 +40,19 @@ jobs:
 
   validate-container-kernels:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: [virt-kernel-fast-container, v86-kernel-container, arm64-kernel-container]
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: cachix/install-nix-action@v31
 
-      - name: Validate container kernel configurations
-        run: |
-          for kernel in virt-kernel-fast-container v86-kernel-container arm64-kernel-container; do
-            nix build --no-link ".#$kernel"
-          done
+      - name: Validate container kernel configuration
+        run: nix build --no-link ".#${{ matrix.kernel }}"
 
   validate:
     runs-on: ubuntu-latest
