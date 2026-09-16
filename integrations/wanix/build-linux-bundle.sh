@@ -124,6 +124,9 @@ git -C "$wanix_src" apply "$here/wanix-wexec-signal.patch"
 git -C "$wanix_src" apply "$here/wanix-wexec-live-read.patch"
 
 mkdir -p "$rootfs/boot" "$rootfs/bin" "$rootfs/etc" "$(dirname "$out")"
+if [ "$kernel_profile" = container ]; then
+    : >"$rootfs/etc/wanix-container"
+fi
 cp "$kernel" "$rootfs/boot/$kernel_name"
 cp "$here/guest/init" "$rootfs/bin/init"
 cp "$wanix_src/extras/linux/bin/domctl" "$wanix_src/extras/linux/bin/post-dhcp" \

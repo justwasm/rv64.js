@@ -32,6 +32,10 @@ mount -t sysfs none /sys
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 
+if [ -f /etc/wanix-container ]; then
+    echo 1 >/proc/sys/net/ipv4/ip_forward
+fi
+
 # The root is the WANIX namespace over 9P, where unix sockets (tmux) and
 # fast scratch files have no home. Give /tmp and /run real tmpfs mounts so
 # tmux and package managers behave like a normal Linux root.
