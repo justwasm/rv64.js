@@ -42,6 +42,24 @@ for (const config of [
   required(read(config), "COMPAT_32BIT_TIME = yes;", config);
 }
 
+const rv64ContainerConfig = read("kernel/rv64-container-config.nix");
+for (const option of [
+  "CGROUP_CPUACCT",
+  "CGROUP_FREEZER",
+  "CPUSETS",
+  "KEYS",
+  "NETFILTER_XT_MATCH_ADDRTYPE",
+  "NETFILTER_XT_MATCH_CONNTRACK",
+  "NETFILTER_XT_MARK",
+  "IP_NF_FILTER",
+  "IP_NF_MANGLE",
+  "IP_NF_RAW",
+  "IP_NF_NAT",
+  "IP_NF_TARGET_MASQUERADE",
+]) {
+  required(rv64ContainerConfig, `  ${option} = yes;`, `RV64 container ${option}`);
+}
+
 const build = read("tools/build-wanix-release-assets.sh");
 for (const profile of ["minimal", "container", "container-full"]) {
   required(build, `    ${profile})`, "guest build profile");
