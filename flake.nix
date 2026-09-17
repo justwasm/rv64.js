@@ -148,27 +148,27 @@
           #     integrations/wanix/arch-configs/ so they stay diff-friendly.
           archBootstrap = { url, sha256, format ? "zst" }:
           pkgs.stdenvNoCC.mkDerivation {
-            name = "arch-bootstrap-${baseNameOf url}";
-            src = pkgs.fetchurl { inherit url sha256; };
-            nativeBuildInputs = [ pkgs.zstd ];
-            dontUnpack = true;
-            installPhase = ''
-            runHook preInstall
-            mkdir -p "$out"
-            case "${format}" of
+          name = "arch-bootstrap-${baseNameOf url}";
+          src = pkgs.fetchurl { inherit url sha256; };
+          nativeBuildInputs = [ pkgs.zstd ];
+          dontUnpack = true;
+          installPhase = ''
+          runHook preInstall
+          mkdir -p "$out"
+          case "${format}" in
             zst)
-              ${pkgs.zstd}/bin/zstd -d -c "$src" | ${pkgs.gnutar}/bin/tar -xf - -C "$out" --no-same-owner
-              ;;
+            ${pkgs.zstd}/bin/zstd -d -c "$src" | ${pkgs.gnutar}/bin/tar -xf - -C "$out" --no-same-owner
+            ;;
             gz)
-              ${pkgs.gnutar}/bin/tar -xzf "$src" -C "$out" --no-same-owner
-              ;;
+            ${pkgs.gnutar}/bin/tar -xzf "$src" -C "$out" --no-same-owner
+            ;;
             *)
-              echo "unsupported arch bootstrap format: ${format}" >&2
-              exit 2
-              ;;
-            esac
-            runHook postInstall
-            '';
+            echo "unsupported arch bootstrap format: ${format}" >&2
+            exit 2
+            ;;
+          esac
+          runHook postInstall
+          '';
           };
 
           archBootstrap_riscv64 = archBootstrap {
