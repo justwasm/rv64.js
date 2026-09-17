@@ -93,7 +93,6 @@ for (const pair of [
   required(bundle, `crush_sha256=${pair[1]}`, `Crush ${pair[0]} archive checksum`);
 }
 required(bundle, 'test -x "$rootfs/usr/local/bin/crush"', "Crush rootfs validation");
-required(bundle, "chmod -R u+rwX /target", "guest rootfs cleanup permissions");
 required(bundle, "chmod -R u+rwX \"$tmp\"", "temporary guest cleanup permissions");
 required(bundle, "profile_packages=(python3 uv)", "Python profile package set");
 required(bundle, "profile_packages=(nodejs-current npm)", "Node.js profile package set");

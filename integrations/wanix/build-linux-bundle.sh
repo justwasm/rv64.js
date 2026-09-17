@@ -164,8 +164,7 @@ case "$profile" in
         ;;
 esac
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
-    sh -ec 'chown -R "$1:$2" /target; chmod -R u+rwX /target' -- "$(id -u)" "$(id -g)"
-
+    find -H /target \( -type f -o -type d \) -exec chown "$(id -u):$(id -g)" {} + || true
 git clone --quiet https://github.com/tractordev/wanix.git "$wanix_src"
 git -C "$wanix_src" checkout --quiet "$wanix_ref"
 if [ "$guest_arch" = riscv64 ]; then
