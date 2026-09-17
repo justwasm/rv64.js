@@ -205,16 +205,30 @@
           '';
 
           archRecipe = pkgs.runCommand "wanix-linux-arch-recipe" { } ''
-          mkdir -p "$out"
-          cp -R ${archBootstrap_riscv64}   "$out/riscv64"
-          cp -R ${archBootstrap_i686}      "$out/i686"
-          cp -R ${archBootstrap_aarch64}   "$out/aarch64"
-          mkdir -p "$out/etc"
-          cp ${./integrations/wanix/arch-configs/mirrorlist} "$out/etc/mirrorlist"
-          cp ${./integrations/wanix/arch-configs/mirrorlist.riscv64} "$out/etc/mirrorlist.riscv64"
-          cp ${./integrations/wanix/arch-configs/pacman.conf} "$out/etc/pacman.conf"
-          cp ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} "$out/etc/pacman-bootstrap.conf"
-          '';
+            mkdir -p "$out"
+            cp -R ${archBootstrap_riscv64}   "$out/riscv64"
+            cp -R ${archBootstrap_aarch64}   "$out/aarch64"
+            mkdir -p "$out/etc"
+            cp ${./integrations/wanix/arch-configs/mirrorlist} "$out/etc/mirrorlist"
+            cp ${./integrations/wanix/arch-configs/mirrorlist.riscv64} "$out/etc/mirrorlist.riscv64"
+            cp ${./integrations/wanix/arch-configs/pacman.conf} "$out/etc/pacman.conf"
+            cp ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} "$out/etc/pacman-bootstrap.conf"
+            '';
+            # i686 rootfs is built via pacstrap (no upstream tarball);
+            # consumers opt in explicitly so the riscv64 + aarch64 aggregate
+            # does not pull pkgsi686Linux into the build sandbox.
+            archRecipeWithI686 = pkgs.runCommand "wanix-linux-arch-recipe-i686" { } ''
+            mkdir -p "$out"
+            cp -R ${archBootstrap_riscv64}   "$out/riscv64"
+            cp -R ${archBootstrap_i686}      "$out/i686"
+            cp -R ${archBootstrap_aarch64}   "$out/aarch64"
+            mkdir -p "$out/etc"
+            cp ${./integrations/wanix/arch-configs/mirrorlist} "$out/etc/mirrorlist"
+            cp ${./integrations/wanix/arch-configs/mirrorlist.riscv64} "$out/etc/mirrorlist.riscv64"
+            cp ${./integrations/wanix/arch-configs/mirrorlist.i686} "$out/etc/mirrorlist.i686"
+            cp ${./integrations/wanix/arch-configs/pacman.conf} "$out/etc/pacman.conf"
+            cp ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} "$out/etc/pacman-bootstrap.conf"
+            '';
           in
           {
           packages.virt-kernel = virtKernel;
@@ -226,9 +240,10 @@
           packages.v86-kernel = x86Kernel;
           packages.v86-kernel-container = x86ContainerKernel;
           packages.arch-bootstrap-riscv64 = archBootstrap_riscv64;
-          packages.arch-bootstrap-aarch64 = archBootstrap_aarch64;
-          packages.arch-bootstrap-i686 = archBootstrap_i686;
-          packages.arch-recipe = archRecipe;
+            packages.arch-bootstrap-aarch64 = archBootstrap_aarch64;
+            packages.arch-bootstrap-i686 = archBootstrap_i686;
+            packages.arch-recipe = archRecipe;
+            packages.arch-recipe-i686 = archRecipeWithI686;
 
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [

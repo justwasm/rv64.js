@@ -104,6 +104,7 @@ required(flakeArch, "packages.arch-bootstrap-riscv64", "flake arch riscv64 recip
 required(flakeArch, "packages.arch-bootstrap-aarch64", "flake arch aarch64 recipe");
 required(flakeArch, "packages.arch-bootstrap-i686", "flake arch i686 recipe");
 required(flakeArch, "packages.arch-recipe", "flake arch bundle recipe");
+required(flakeArch, "packages.arch-recipe-i686", "flake arch bundle with i686 recipe");
 required(flakeArch, "riscv.mirror.pkgbuild.com/images/archriscv-2026-08-27.tar.zst", "flake arch riscv64 url");
 required(flakeArch, "ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz", "flake arch aarch64 url");
 required(flakeArch, "pkgs.pkgsi686Linux.pacstrap", "flake arch i686 pacstrap builder");
