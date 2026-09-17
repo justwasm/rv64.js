@@ -179,11 +179,11 @@ if [ "$profile" = zero ]; then
             ;;
     esac
     zero_archive="$tmp/zero-linux-$zero_arch.tar.gz"
-    mkdir -p "$rootfs/usr/local/bin" "$rootfs/usr/local/lib/zero" "$rootfs/usr/local/share/zero"
+    mkdir -p "$rootfs/usr/local/bin" "$rootfs/usr/local/lib/zero/bin" "$rootfs/usr/local/share/zero"
     curl -fsSL "https://github.com/justwasm/zero/releases/download/$zero_version/zero-$zero_version-linux-$zero_arch.tar.gz" -o "$zero_archive"
     printf '%s  %s\n' "$zero_sha256" "$zero_archive" | sha256sum -c -
     tar -xzf "$zero_archive" -C "$rootfs/usr/local/bin/" zero zero-seccomp zero-linux-sandbox
-    tar -xzf "$zero_archive" -C "$rootfs/usr/local/lib/zero/" --strip-components=1 bin/zero.js
+    tar -xzf "$zero_archive" -C "$rootfs/usr/local/lib/zero/bin/" --strip-components=1 bin/zero.js
     tar -xzf "$zero_archive" -C "$rootfs/usr/local/share/zero/" package.json README.md VERSION
     chmod 0755 "$rootfs/usr/local/bin/zero" "$rootfs/usr/local/bin/zero-seccomp" "$rootfs/usr/local/bin/zero-linux-sandbox"
 fi
