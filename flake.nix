@@ -148,38 +148,48 @@
           #     integrations/wanix/arch-configs/ so they stay diff-friendly.
           archBootstrap = { url, sha256, format ? "zst" }:
           pkgs.stdenvNoCC.mkDerivation {
-          name = "arch-bootstrap-${baseNameOf url}";
-          src = pkgs.fetchurl { inherit url sha256; };
-          nativeBuildInputs = [ pkgs.zstd ];
-          dontUnpack = true;
-          installPhase = ''
-          runHook preInstall
-          mkdir -p "$out"
-          case "${format}" in
-            zst)
-            ${pkgs.zstd}/bin/zstd -d -c "$src" | ${pkgs.gnutar}/bin/tar -xf - -C "$out" --no-same-owner
-            ;;
-            gz)
-            ${pkgs.gnutar}/bin/tar -xzf "$src" -C "$out" --no-same-owner
-            ;;
-            *)
-            echo "unsupported arch bootstrap format: ${format}" >&2
-            exit 2
-            ;;
-          esac
-          runHook postInstall
-          '';
+            name = "arch-bootstrap-${baseNameOf url}";
+            src = pkgs.fetchurl { inherit url sha256; };
+            nativeBuildInputs = [ pkgs.zstd ];
+            dontUnpack = true;
+            # Arch Linux ARM tarballs include absolute symlinks under
+            # /etc/ca-certificates/extracted/cadir that Nix's store
+            # layer rejects when extracted straight into $out. Extract
+            # into a scratch directory first, then copy.
+            unpackPhase = ''
+              runHook preUnpack
+              mkdir -p "$NIX_BUILD_TOP/rootfs"
+              case "${format}" of
+                zst)
+                  ${pkgs.zstd}/bin/zstd -d -c "$src" | ${pkgs.gnutar}/bin/tar -xf - -C "$NIX_BUILD_TOP/rootfs" --no-same-owner
+                  ;;
+                gz)
+                  ${pkgs.gnutar}/bin/tar -xzf "$src" -C "$NIX_BUILD_TOP/rootfs" --no-same-owner
+                  ;;
+                *)
+                  echo "unsupported arch bootstrap format: ${format}" >&2
+                  exit 2
+                  ;;
+              esac
+              runHook postUnpack
+            ';
+            installPhase = ''
+              runHook preInstall
+              mkdir -p "$out"
+              cp -a "$NIX_BUILD_TOP/rootfs"/. "$out"/
+              runHook postInstall
+            ';
           };
 
           archBootstrap_riscv64 = archBootstrap {
             url = "https://riscv.mirror.pkgbuild.com/images/archriscv-2026-08-27.tar.zst";
             sha256 = "a2045c8b62232db2f60d8e4db610dbb5d9e12856dab0ba08634ad3d7cb7ad498";
-            };
-            archBootstrap_aarch64 = archBootstrap {
-              url = "https://ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz";
-              sha256 = "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319";
-              format = "gz";
-              };
+          };
+          archBootstrap_aarch64 = archBootstrap {
+            url = "https://ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz";
+            sha256 = "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319";
+            format = "gz";
+          };
           # i686 has no published bootstrap tarball. Run pacstrap under
           # qemu-user-i386-static inside the build sandbox against the
           # ufscar mirror. The recipe stays opt-in: builds that do not
