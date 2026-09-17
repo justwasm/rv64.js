@@ -173,11 +173,11 @@
 
           archBootstrap_riscv64 = archBootstrap {
             url = "https://riscv.mirror.pkgbuild.com/images/archriscv-2026-08-27.tar.zst";
-            sha256 = "sha256-UICFZC3CEMW3F5QNRZG3MEG3WXM6CKCW3KYLUCDDJLJ5PS322SMA=";
+            sha256 = "sha256-UICFZC3CEMW3F5QNRZG3MEG3WXM6CKCW3KYLUCDDJLJ5PS322SMA";
             };
             archBootstrap_aarch64 = archBootstrap {
             url = "https://ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz";
-            sha256 = "sha256-IKSO5KQDRGKP7UY7UFZSK3XS6DXVCE2Y522BXHVB7BRGHENZWMMQ=";
+            sha256 = "sha256-IKSO5KQDRGKP7UY7UFZSK3XS6DXVCE2Y522BXHVB7BRGHENZWMMQ";
             };
           # i686 has no published bootstrap tarball. Run pacstrap under
           # qemu-user-i386-static inside the build sandbox against the
