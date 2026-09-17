@@ -20,6 +20,7 @@ case "$guest_arch" in
         docker_platform=linux/riscv64
         apk_arch=riscv64
         crush_arch=riscv64
+        peri_arch=riscv64
         go_arch=riscv64
         kernel_attr=virt-kernel-fast
         kernel_name=Image
@@ -30,6 +31,7 @@ case "$guest_arch" in
         docker_platform=linux/386
         apk_arch=x86
         crush_arch=i386
+        peri_arch=i686
         go_arch=386
         kernel_attr=v86-kernel
         kernel_name=bzImage
@@ -40,6 +42,7 @@ case "$guest_arch" in
         docker_platform=linux/arm64
         apk_arch=aarch64
         crush_arch=arm64
+        peri_arch=aarch64
         go_arch=arm64
         kernel_attr=arm64-kernel
         kernel_name=Image
@@ -78,6 +81,9 @@ case "$profile" in
     claude)
         profile_packages=(nodejs-current npm ripgrep)
         ;;
+    peri)
+        profile_packages=()
+        ;;
     pi)
         profile_packages=(nodejs-current npm)
         ;;
@@ -88,7 +94,7 @@ case "$profile" in
         profile_packages=(attr ca-certificates podman python3 strace tmux uv)
         ;;
     *)
-        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, claude, pi, golang, or full)" >&2
+        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, claude, peri, pi, golang, or full)" >&2
         exit 2
         ;;
 esac
@@ -132,6 +138,27 @@ if [ "$profile" = crush ]; then
     install -m 0755 "$crush_stage/crush" "$rootfs/usr/local/bin/crush"
 fi
 
+if [ "$profile" = peri ]; then
+    peri_version=agent-v3.16.5
+    case "$peri_arch" in
+        riscv64)
+            peri_sha256=e1c15813c2f7a73e7b980f839eb0224c490887f51cb601d75b6245b62d0f891c
+            ;;
+        i686)
+            peri_sha256=4caa76cd61cf959c9814233dd5c333af1194a31c5cb4d0697b748ac256c7e406
+            ;;
+        aarch64)
+            peri_sha256=93bebb64cd6624095d4f1456647ee01e029849f35ecf90f6a32ef1a6158678b6
+            ;;
+    esac
+    peri_archive="$tmp/peri-linux-$peri_arch.tar.gz"
+    mkdir -p "$rootfs/usr/local/bin"
+    curl -fsSL "https://github.com/justwasm/peri/releases/download/$peri_version/peri-linux-$peri_arch.tar.gz" -o "$peri_archive"
+    printf '%s  %s\n' "$peri_sha256" "$peri_archive" | sha256sum -c -
+    tar -xzf "$peri_archive" -O "peri-linux-$peri_arch" >"$rootfs/usr/local/bin/peri"
+    chmod 0755 "$rootfs/usr/local/bin/peri"
+fi
+
 # Keep the default guest rootfs minimal, matching the existing x86 and RV64
 # archives. Python is an opt-in workload dependency for benchmark images.
 if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
@@ -170,6 +197,9 @@ case "$profile" in
         test -x "$rootfs/usr/bin/npm"
         test -x "$rootfs/usr/bin/rg"
         test -L "$rootfs/usr/local/bin/claude-code-best"
+        ;;
+    peri)
+        test -x "$rootfs/usr/local/bin/peri"
         ;;
     pi)
         test -x "$rootfs/usr/bin/node"

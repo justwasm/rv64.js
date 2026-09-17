@@ -33,7 +33,7 @@ case "$profile" in
         rootfs_profile=minimal
         profile_suffix=""
         ;;
-    crush|python|nodejs|claude|pi|golang)
+    crush|python|nodejs|claude|peri|pi|golang)
         kernel_profile=minimal
         rootfs_profile="$profile"
         profile_suffix="-$profile"
@@ -51,7 +51,7 @@ case "$profile" in
         profile_suffix="-container-full"
         ;;
     *)
-        echo "unsupported profile: $profile (expected minimal, crush, python, nodejs, claude, pi, golang, container, or container-full)" >&2
+        echo "unsupported profile: $profile (expected minimal, crush, python, nodejs, claude, peri, pi, golang, container, or container-full)" >&2
         exit 2
         ;;
 esac
@@ -93,6 +93,9 @@ case "$rootfs_profile" in
         tar -tf "$archive" --wildcards "usr/bin/npm" >/dev/null
         tar -tf "$archive" --wildcards "usr/bin/rg" >/dev/null
         tar -tf "$archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null
+        ;;
+    peri)
+        tar -tf "$archive" --wildcards "usr/local/bin/peri" >/dev/null
         ;;
     pi)
         tar -tf "$archive" --wildcards "usr/bin/node" >/dev/null
