@@ -1,0 +1,2 @@
+Server = https://mirror.ufscar.br/archlinux32/$repo/os/$arch
+Server = https://archlinux32.felixc.at/$repo/os/$arch

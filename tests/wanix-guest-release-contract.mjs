@@ -100,15 +100,19 @@ required(bundle, 'cp "$here/arch-configs/mirrorlist" "$rootfs/etc/pacman.d/mirro
 required(bundle, 'cp "$here/arch-configs/mirrorlist.riscv64" "$rootfs/etc/pacman.d/mirrorlist"', "Arch riscv64 mirrorlist override");
 
 const flakeArch = read("flake.nix");
-required(flakeArch, "packages.arch-bootstrap-x86_64", "flake arch x86_64 recipe");
 required(flakeArch, "packages.arch-bootstrap-riscv64", "flake arch riscv64 recipe");
-required(flakeArch, "packages.arch-bootstrap-i686", "flake arch i686 recipe");
 required(flakeArch, "packages.arch-bootstrap-aarch64", "flake arch aarch64 recipe");
+required(flakeArch, "packages.arch-bootstrap-i686", "flake arch i686 recipe");
 required(flakeArch, "packages.arch-recipe", "flake arch bundle recipe");
-required(flakeArch, "archlinux-bootstrap-x86_64.tar.zst", "flake arch x86_64 url");
-required(flakeArch, "archriscv-latest.tar.zst", "flake arch riscv64 url");
-required(flakeArch, "archlinux32-bootstrap", "flake arch i686 source");
-required(flakeArch, "archlinuxarm-keyring", "flake arch aarch64 source");
+required(flakeArch, "riscv.mirror.pkgbuild.com/images/archriscv-2026-08-27.tar.zst", "flake arch riscv64 url");
+required(flakeArch, "ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz", "flake arch aarch64 url");
+required(flakeArch, "pkgs.pkgsi686Linux.pacstrap", "flake arch i686 pacstrap builder");
+required(flakeArch, "qemu-i386-static", "flake arch i686 qemu interpreter");
+// The i686 mirror lives in the pacstrap mirrorlist (pulled at build
+// time), not the flake directly.
+const mirrorlistI686 = read("integrations/wanix/arch-configs/mirrorlist.i686");
+required(mirrorlistI686, "mirror.ufscar.br/archlinux32", "i686 mirrorlist must declare ufscar");
+required(mirrorlistI686, "$repo/os/$arch", "i686 mirrorlist must use $repo/$arch placeholders");
 
 const mirrorlistNames = ["mirrorlist", "mirrorlist.riscv64"];
 for (const name of mirrorlistNames) {

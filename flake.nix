@@ -133,89 +133,102 @@
         virtOpensbi = pkgs.pkgsCross.riscv64.opensbi;
 
         # Arch Linux bootstrap rootfs recipes. The script
-        # integrations/wanix/build-linux-bundle.sh unpacks one of these
-        # outputs in place of the alpine rootfs when WANIX_ROOTFS=arch,
-        # then layers the kernel, init, wexec, hostexport, and any
-        # profile-specific packages on top. The derivation is a flat
-        # directory containing the official upstream bootstrap tarball
-        # contents (usr/, etc/, lib/...). The matching pacman mirrorlist
-        # and pacman.conf live as plain text in
-        # integrations/wanix/arch-configs/ so they stay diff-friendly and
-        # can be edited without rebuilding every Nix expression.
-        archBootstrap = { url, sha256, format ? "zst" }:
-        pkgs.stdenvNoCC.mkDerivation {
-        name = "arch-bootstrap-${baseNameOf url}";
-        src = pkgs.fetchurl { inherit url sha256; };
-        nativeBuildInputs = [ pkgs.zstd ];
-        dontUnpack = true;
-        installPhase = ''
-        runHook preInstall
-        mkdir -p "$out"
-        case "${format}" of
-          zst)
-          ${pkgs.zstd}/bin/zstd -d -c "$src" | ${pkgs.gnutar}/bin/tar -xf - -C "$out" --no-same-owner
-          ;;
-          gz)
-          ${pkgs.gnutar}/bin/tar -xzf "$src" -C "$out" --no-same-owner
-          ;;
-          *)
-          echo "unsupported arch bootstrap format: ${format}" >&2
-          exit 2
-          ;;
-        esac
-        runHook postInstall
-        '';
-        };
+          # integrations/wanix/build-linux-bundle.sh unpacks one of these
+          # outputs in place of the alpine rootfs when WANIX_ROOTFS=arch,
+          # then layers the kernel, init, wexec, hostexport, and any
+          # profile-specific packages on top. Per-arch recipes live below:
+          #   - riscv64 ships a prebuilt rootfs tarball that we fetch and
+          #     unpack;
+          #   - aarch64 ships its own prebuilt rootfs tarball from
+          #     archlinuxarm (same fetch + unpack path);
+          #   - i686 has no upstream bootstrap tarball, so we run pacstrap
+          #     inside the build sandbox against the ufscar mirror and
+          #     package the result. The matching pacman mirrorlist and
+          #     pacman.conf live as plain text in
+          #     integrations/wanix/arch-configs/ so they stay diff-friendly.
+          archBootstrap = { url, sha256, format ? "zst" }:
+          pkgs.stdenvNoCC.mkDerivation {
+            name = "arch-bootstrap-${baseNameOf url}";
+            src = pkgs.fetchurl { inherit url sha256; };
+            nativeBuildInputs = [ pkgs.zstd ];
+            dontUnpack = true;
+            installPhase = ''
+            runHook preInstall
+            mkdir -p "$out"
+            case "${format}" of
+            zst)
+              ${pkgs.zstd}/bin/zstd -d -c "$src" | ${pkgs.gnutar}/bin/tar -xf - -C "$out" --no-same-owner
+              ;;
+            gz)
+              ${pkgs.gnutar}/bin/tar -xzf "$src" -C "$out" --no-same-owner
+              ;;
+            *)
+              echo "unsupported arch bootstrap format: ${format}" >&2
+              exit 2
+              ;;
+            esac
+            runHook postInstall
+            '';
+          };
 
-        archBootstrap_x86_64 = archBootstrap {
-        url = "https://geo.mirror.pkgbuild.com/iso/latest/archlinux-bootstrap-x86_64.tar.zst";
-        sha256 = "sha256-895661bdf6c64e91b7725874165fd05dd30c438d3ffec661671ab5cfb261ca58";
-        };
-        archBootstrap_riscv64 = archBootstrap {
-        url = "https://archriscv.felixc.at/images/archriscv-latest.tar.zst";
-        sha256 = "sha256-fe4f638c32e47f7f3e2174741961ad1f2d5192c4770a95df414a9e86064a5fad";
-        };
-        # archlinux32 (i686) and archlinuxarm (aarch64) bootstrap tarballs
-        # ship as plain .tar.gz and use the github release workflow. The
-        # CI fetcher hashes are kept as separate derivations so a mirror
-        # outage fails one arch instead of all.
-        archBootstrap_i686 = archBootstrap {
-        url = "https://github.com/archlinux32/archlinux32-bootstrap/releases/download/2025.09.01-i686/archlinux32-bootstrap-2025.09.01-i686.tar.gz";
-        sha256 = "";
-        format = "gz";
-        };
-        archBootstrap_aarch64 = archBootstrap {
-        url = "https://github.com/archlinuxarm/archlinuxarm-keyring/releases/download/v20240418-1/archlinuxarm-keyring-20240418-1-any.pkg.tar.xz";
-        sha256 = "";
-        };
+          archBootstrap_riscv64 = archBootstrap {
+          url = "https://riscv.mirror.pkgbuild.com/images/archriscv-2026-08-27.tar.zst";
+          sha256 = "sha256-a2045c8b62232db2f60d8e4db610dbb5d9e12856dab0ba08634ad3d7cb7ad498";
+          };
+          archBootstrap_aarch64 = archBootstrap {
+          url = "https://ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz";
+          sha256 = "sha256-42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319";
+          };
+          # i686 has no published bootstrap tarball. Run pacstrap under
+          # qemu-user-i386-static inside the build sandbox against the
+          # ufscar mirror. The recipe stays opt-in: builds that do not
+          # need i686 simply never reference `archBootstrap_i686`.
+          archBootstrap_i686 = pkgs.runCommand "arch-bootstrap-i686" {
+          nativeBuildInputs = [
+            pkgs.qemu_user
+            pkgs.pkgsi686Linux.pacstrap
+          ];
+          } ''
+          mkdir -p "$out"
+          # The sandbox already provides binfmt for i386; force the
+          # interpreter so pacstrap does not try to invoke itself under
+          # the host dynamic linker. arch-install-scripts' pacstrap
+          # honours -G (copy host gpg keyring) and -M (no mirrorlist
+          # copy) so we can inject our own /etc/pacman.d/mirrorlist via
+          # the build's $pacman_bootstrap_conf below.
+          ${pkgs.qemu_user}/bin/qemu-i386-static \
+            -L ${pkgs.pkgsi686Linux.stdenv} \
+            -E PATH=${pkgs.pkgsi686Linux.bash}/bin:${pkgs.pkgsi686Linux.coreutils}/bin:${pkgs.pkgsi686Linux.gnused}/bin \
+            ${pkgs.pkgsi686Linux.pacstrap}/bin/pacstrap \
+            -G -M -C ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} \
+            -K "$out" base >/dev/null
+          '';
 
-        archRecipe = pkgs.runCommand "wanix-linux-arch-recipe" { } ''
-        mkdir -p "$out"
-        cp -R ${archBootstrap_x86_64}    "$out/x86_64"
-        cp -R ${archBootstrap_riscv64}   "$out/riscv64"
-        cp -R ${archBootstrap_i686}      "$out/i686"
-        cp -R ${archBootstrap_aarch64}   "$out/aarch64"
-        mkdir -p "$out/etc"
-        cp ${./integrations/wanix/arch-configs/mirrorlist} "$out/etc/mirrorlist"
-        cp ${./integrations/wanix/arch-configs/mirrorlist.riscv64} "$out/etc/mirrorlist.riscv64"
-        cp ${./integrations/wanix/arch-configs/pacman.conf} "$out/etc/pacman.conf"
-        cp ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} "$out/etc/pacman-bootstrap.conf"
-        '';
-      in
-      {
-        packages.virt-kernel = virtKernel;
-        packages.virt-kernel-fast = rv64Kernel;
-        packages.virt-kernel-fast-container = rv64ContainerKernel;
-        packages.virt-opensbi = virtOpensbi;
-        packages.arm64-kernel = arm64Kernel;
-        packages.arm64-kernel-container = arm64ContainerKernel;
-        packages.v86-kernel = x86Kernel;
-        packages.v86-kernel-container = x86ContainerKernel;
-        packages.arch-bootstrap-x86_64 = archBootstrap_x86_64;
-        packages.arch-bootstrap-riscv64 = archBootstrap_riscv64;
-        packages.arch-bootstrap-i686 = archBootstrap_i686;
-        packages.arch-bootstrap-aarch64 = archBootstrap_aarch64;
-        packages.arch-recipe = archRecipe;
+          archRecipe = pkgs.runCommand "wanix-linux-arch-recipe" { } ''
+          mkdir -p "$out"
+          cp -R ${archBootstrap_riscv64}   "$out/riscv64"
+          cp -R ${archBootstrap_i686}      "$out/i686"
+          cp -R ${archBootstrap_aarch64}   "$out/aarch64"
+          mkdir -p "$out/etc"
+          cp ${./integrations/wanix/arch-configs/mirrorlist} "$out/etc/mirrorlist"
+          cp ${./integrations/wanix/arch-configs/mirrorlist.riscv64} "$out/etc/mirrorlist.riscv64"
+          cp ${./integrations/wanix/arch-configs/pacman.conf} "$out/etc/pacman.conf"
+          cp ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} "$out/etc/pacman-bootstrap.conf"
+          '';
+          in
+          {
+          packages.virt-kernel = virtKernel;
+          packages.virt-kernel-fast = rv64Kernel;
+          packages.virt-kernel-fast-container = rv64ContainerKernel;
+          packages.virt-opensbi = virtOpensbi;
+          packages.arm64-kernel = arm64Kernel;
+          packages.arm64-kernel-container = arm64ContainerKernel;
+          packages.v86-kernel = x86Kernel;
+          packages.v86-kernel-container = x86ContainerKernel;
+          packages.arch-bootstrap-riscv64 = archBootstrap_riscv64;
+          packages.arch-bootstrap-aarch64 = archBootstrap_aarch64;
+          packages.arch-bootstrap-i686 = archBootstrap_i686;
+          packages.arch-recipe = archRecipe;
 
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [

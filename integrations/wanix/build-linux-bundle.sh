@@ -147,6 +147,8 @@ if [ -n "${WANIX_ROOTFS:-}" ] && [ "$WANIX_ROOTFS" = arch ] && [ -n "$rootfs_nix
     cp "$here/arch-configs/pacman.conf" "$rootfs/etc/pacman.conf"
     if [ "$guest_arch" = riscv64 ]; then
         cp "$here/arch-configs/mirrorlist.riscv64" "$rootfs/etc/pacman.d/mirrorlist"
+    elif [ "$guest_arch" = i686 ] || [ "$guest_arch" = x86 ]; then
+        cp "$here/arch-configs/mirrorlist.i686" "$rootfs/etc/pacman.d/mirrorlist"
     else
         cp "$here/arch-configs/mirrorlist" "$rootfs/etc/pacman.d/mirrorlist"
     fi
