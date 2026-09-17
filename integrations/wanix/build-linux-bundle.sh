@@ -72,7 +72,7 @@ case "$profile" in
     python)
         profile_packages=(python3 uv)
         ;;
-    nodejs)
+    nodejs|claude)
         profile_packages=(nodejs-current npm)
         ;;
     golang)
@@ -82,7 +82,7 @@ case "$profile" in
         profile_packages=(attr ca-certificates podman python3 strace tmux uv)
         ;;
     *)
-        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, golang, or full)" >&2
+        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, claude, golang, or full)" >&2
         exit 2
         ;;
 esac
@@ -139,6 +139,10 @@ if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
         --repository "https://dl-cdn.alpinelinux.org/alpine/v${alpine_tag%.*}/community" \
         add "${packages[@]}"
 fi
+if [ "$profile" = claude ]; then
+    "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
+        sh -ec 'apk add --no-cache nodejs-current npm; npm --prefix /target/usr/local install --global claude-code-best'
+fi
 case "$profile" in
     crush)
         test -x "$rootfs/usr/local/bin/crush"
@@ -150,6 +154,11 @@ case "$profile" in
     nodejs)
         test -x "$rootfs/usr/bin/node"
         test -x "$rootfs/usr/bin/npm"
+        ;;
+    claude)
+        test -x "$rootfs/usr/bin/node"
+        test -x "$rootfs/usr/bin/npm"
+        test -L "$rootfs/usr/local/bin/claude-code-best"
         ;;
     golang)
         test -L "$rootfs/usr/bin/go"

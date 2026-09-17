@@ -233,7 +233,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [riscv64, x86, arm64]
-        profile: [minimal, crush, python, nodejs, golang, container, container-full]
+        profile: [minimal, crush, python, nodejs, claude, golang, container, container-full]
 
     steps:
       - uses: actions/checkout@v4
