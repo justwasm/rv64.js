@@ -78,6 +78,9 @@ case "$profile" in
     claude)
         profile_packages=(nodejs-current npm ripgrep)
         ;;
+    pi)
+        profile_packages=(nodejs-current npm)
+        ;;
     golang)
         profile_packages=(go)
         ;;
@@ -85,7 +88,7 @@ case "$profile" in
         profile_packages=(attr ca-certificates podman python3 strace tmux uv)
         ;;
     *)
-        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, claude, golang, or full)" >&2
+        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, claude, pi, golang, or full)" >&2
         exit 2
         ;;
 esac
@@ -146,6 +149,10 @@ if [ "$profile" = claude ]; then
     "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
         sh -ec 'apk add --no-cache nodejs-current npm ripgrep; npm --prefix /target/usr/local install --global claude-code-best'
 fi
+if [ "$profile" = pi ]; then
+    "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
+        sh -ec 'apk add --no-cache nodejs-current npm; npm --prefix /target/usr/local install --global --ignore-scripts @earendil-works/pi-coding-agent'
+fi
 case "$profile" in
     crush)
         test -x "$rootfs/usr/local/bin/crush"
@@ -163,6 +170,11 @@ case "$profile" in
         test -x "$rootfs/usr/bin/npm"
         test -x "$rootfs/usr/bin/rg"
         test -L "$rootfs/usr/local/bin/claude-code-best"
+        ;;
+    pi)
+        test -x "$rootfs/usr/bin/node"
+        test -x "$rootfs/usr/bin/npm"
+        test -L "$rootfs/usr/local/bin/pi"
         ;;
     golang)
         test -L "$rootfs/usr/bin/go"

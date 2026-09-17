@@ -66,7 +66,7 @@ for (const config of [
 }
 
 const build = read("tools/build-wanix-release-assets.sh");
-for (const profile of ["minimal", "crush", "python", "nodejs", "claude", "golang", "container", "container-full"]) {
+for (const profile of ["minimal", "crush", "python", "nodejs", "claude", "pi", "golang", "container", "container-full"]) {
   required(build, `    ${profile})`, "guest build profile");
 }
 required(build, "ALPINE_TAG=3.24", "guest Alpine version");
@@ -82,6 +82,7 @@ for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "
 required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/crush" >/dev/null', "Crush archive verification");
 required(build, 'tar -tf "$archive" --wildcards "usr/bin/rg" >/dev/null', "ripgrep archive verification");
 required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null', "Claude archive verification");
+required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/pi" >/dev/null', "Pi archive verification");
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
 
 const bundle = read("integrations/wanix/build-linux-bundle.sh");
@@ -102,6 +103,9 @@ required(bundle, "profile_packages=(nodejs-current npm ripgrep)", "Claude profil
 required(bundle, "npm --prefix /target/usr/local install --global claude-code-best", "Claude Code Best installation");
 required(bundle, 'test -x "$rootfs/usr/bin/rg"', "ripgrep rootfs validation");
 required(bundle, 'test -L "$rootfs/usr/local/bin/claude-code-best"', "Claude command validation");
+required(bundle, "profile_packages=(nodejs-current npm)", "Pi profile package set");
+required(bundle, "npm --prefix /target/usr/local install --global --ignore-scripts @earendil-works/pi-coding-agent", "Pi Coding Agent installation");
+required(bundle, 'test -L "$rootfs/usr/local/bin/pi"', "Pi command validation");
 required(bundle, "profile_packages=(go)", "Go profile package set");
 required(bundle, "profile_packages=(attr ca-certificates podman python3 strace tmux uv)", "full OCI, Python, multitasking, and debugging package set");
 for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "node", "npm"]) {
@@ -123,6 +127,7 @@ for (const archive of [
   "wanix-linux-rv64-python.tgz",
   "wanix-linux-rv64-nodejs.tgz",
   "wanix-linux-rv64-claude.tgz",
+  "wanix-linux-rv64-pi.tgz",
   "wanix-linux-rv64-golang.tgz",
   "wanix-linux-rv64-container.tgz",
   "wanix-linux-rv64-container-full.tgz",
@@ -131,6 +136,7 @@ for (const archive of [
   "wanix-linux-x86-python.tgz",
   "wanix-linux-x86-nodejs.tgz",
   "wanix-linux-x86-claude.tgz",
+  "wanix-linux-x86-pi.tgz",
   "wanix-linux-x86-golang.tgz",
   "wanix-linux-x86-container.tgz",
   "wanix-linux-x86-container-full.tgz",
@@ -139,6 +145,7 @@ for (const archive of [
   "wanix-linux-arm64-python.tgz",
   "wanix-linux-arm64-nodejs.tgz",
   "wanix-linux-arm64-claude.tgz",
+  "wanix-linux-arm64-pi.tgz",
   "wanix-linux-arm64-golang.tgz",
   "wanix-linux-arm64-container.tgz",
   "wanix-linux-arm64-container-full.tgz",
@@ -150,7 +157,7 @@ const releaseWorkflow = read(".github/workflows/release.yml");
 required(releaseWorkflow, 'name: rv64.js and WANIX release', "unified release workflow");
 required(releaseWorkflow, '- "v[0-9]+.[0-9]+.[0-9]+"', "semver release trigger");
 required(releaseWorkflow, "arch: [riscv64, x86, arm64]", "guest workflow architecture matrix");
-required(releaseWorkflow, "profile: [minimal, crush, python, nodejs, claude, golang, container, container-full]", "guest workflow profile matrix");
+required(releaseWorkflow, "profile: [minimal, crush, python, nodejs, claude, pi, golang, container, container-full]", "guest workflow profile matrix");
 required(releaseWorkflow, 'name: Create semver release', "semver release preparation job");
 required(releaseWorkflow, 'needs: prepare-release', "guest release dependency");
 required(releaseWorkflow, 'Publish guest archive immediately', "independent guest archive publication");
