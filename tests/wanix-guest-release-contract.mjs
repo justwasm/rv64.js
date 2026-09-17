@@ -98,9 +98,11 @@ required(bundle, "profile_packages=(python3 uv)", "Python profile package set");
 required(bundle, "profile_packages=(nodejs-current npm)", "Node.js profile package set");
 required(bundle, "profile_packages=(go)", "Go profile package set");
 required(bundle, "profile_packages=(attr ca-certificates podman python3 strace tmux uv)", "full OCI, Python, multitasking, and debugging package set");
-for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "node", "npm", "go"]) {
+for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "node", "npm"]) {
   required(bundle, `test -x "$rootfs/usr/bin/${binary}"`, `${binary} rootfs validation`);
 }
+required(bundle, 'test -L "$rootfs/usr/bin/go"', "Go command symlink validation");
+required(bundle, 'test -x "$rootfs/usr/lib/go/bin/go"', "Go executable validation");
 assert.doesNotMatch(bundle, /profile_packages=.*\b(docker|docker-proxy|dockerd)\b/, "full image must not include Docker");
 required(bundle, ': >"$rootfs/etc/wanix-container"', "container guest marker");
 

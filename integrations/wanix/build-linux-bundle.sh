@@ -152,7 +152,8 @@ case "$profile" in
         test -x "$rootfs/usr/bin/npm"
         ;;
     golang)
-        test -x "$rootfs/usr/bin/go"
+        test -L "$rootfs/usr/bin/go"
+        test -x "$rootfs/usr/lib/go/bin/go"
         ;;
     full)
         test -x "$rootfs/usr/bin/getfattr"
