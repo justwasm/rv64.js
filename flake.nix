@@ -156,11 +156,11 @@
             # /etc/ca-certificates/extracted/cadir that Nix's store
             # layer rejects when extracted straight into $out. Extract
             # into a scratch directory first, then copy into $out.
-            installPhase = ''
+            installPhase = '''
               runHook preInstall
               scratch="$NIX_BUILD_TOP/rootfs"
               mkdir -p "$scratch"
-              case "${format}" of
+              case "$format" in
                 zst)
                   ${pkgs.zstd}/bin/zstd -d -c "$src" | ${pkgs.gnutar}/bin/tar -xf - -C "$scratch" --no-same-owner
                   ;;
@@ -168,14 +168,14 @@
                   ${pkgs.gnutar}/bin/tar -xzf "$src" -C "$scratch" --no-same-owner
                   ;;
                 *)
-                  echo "unsupported arch bootstrap format: ${format}" >&2
+                  echo "unsupported arch bootstrap format: $format" >&2
                   exit 2
                   ;;
               esac
               mkdir -p "$out"
               cp -a "$scratch"/. "$out"/
               runHook postInstall
-            '';
+            ''';
           };
 
           archBootstrap_riscv64 = archBootstrap {
