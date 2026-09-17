@@ -33,7 +33,7 @@ case "$profile" in
         rootfs_profile=minimal
         profile_suffix=""
         ;;
-    crush|python|nodejs|claude|peri|pi|golang)
+    crush|python|nodejs|claude|peri|zero|pi|golang)
         kernel_profile=minimal
         rootfs_profile="$profile"
         profile_suffix="-$profile"
@@ -51,7 +51,7 @@ case "$profile" in
         profile_suffix="-container-full"
         ;;
     *)
-        echo "unsupported profile: $profile (expected minimal, crush, python, nodejs, claude, peri, pi, golang, container, or container-full)" >&2
+        echo "unsupported profile: $profile (expected minimal, crush, python, nodejs, claude, peri, zero, pi, golang, container, or container-full)" >&2
         exit 2
         ;;
 esac
@@ -96,6 +96,12 @@ case "$rootfs_profile" in
         ;;
     peri)
         tar -tf "$archive" --wildcards "usr/local/bin/peri" >/dev/null
+        ;;
+    zero)
+        tar -tf "$archive" --wildcards "usr/local/bin/zero" >/dev/null
+        tar -tf "$archive" --wildcards "usr/local/bin/zero-seccomp" >/dev/null
+        tar -tf "$archive" --wildcards "usr/local/bin/zero-linux-sandbox" >/dev/null
+        tar -tf "$archive" --wildcards "usr/local/lib/zero/bin/zero.js" >/dev/null
         ;;
     pi)
         tar -tf "$archive" --wildcards "usr/bin/node" >/dev/null

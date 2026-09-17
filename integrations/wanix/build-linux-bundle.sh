@@ -21,6 +21,7 @@ case "$guest_arch" in
         apk_arch=riscv64
         crush_arch=riscv64
         peri_arch=riscv64
+        zero_arch=riscv64
         go_arch=riscv64
         kernel_attr=virt-kernel-fast
         kernel_name=Image
@@ -32,6 +33,7 @@ case "$guest_arch" in
         apk_arch=x86
         crush_arch=i386
         peri_arch=i686
+        zero_arch=x86
         go_arch=386
         kernel_attr=v86-kernel
         kernel_name=bzImage
@@ -43,6 +45,7 @@ case "$guest_arch" in
         apk_arch=aarch64
         crush_arch=arm64
         peri_arch=aarch64
+        zero_arch=arm64
         go_arch=arm64
         kernel_attr=arm64-kernel
         kernel_name=Image
@@ -84,6 +87,9 @@ case "$profile" in
     peri)
         profile_packages=()
         ;;
+    zero)
+        profile_packages=()
+        ;;
     pi)
         profile_packages=(nodejs-current npm)
         ;;
@@ -94,7 +100,7 @@ case "$profile" in
         profile_packages=(attr ca-certificates podman python3 strace tmux uv)
         ;;
     *)
-        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, claude, peri, pi, golang, or full)" >&2
+        echo "unsupported WANIX_ROOTFS_PROFILE: $profile (expected minimal, crush, python, nodejs, claude, peri, zero, pi, golang, or full)" >&2
         exit 2
         ;;
 esac
@@ -159,6 +165,29 @@ if [ "$profile" = peri ]; then
     chmod 0755 "$rootfs/usr/local/bin/peri"
 fi
 
+if [ "$profile" = zero ]; then
+    zero_version=v0.9.0
+    case "$zero_arch" in
+        riscv64)
+            zero_sha256=e7ce4e66e230661056176a57dc0018b32b799f2ce9d8946d9625b7dfb8ada4af
+            ;;
+        x86)
+            zero_sha256=ada2844dad1251da033b13ebc689342371e79b92eb6b19fddbddd36b6d2a9810
+            ;;
+        arm64)
+            zero_sha256=61d8b5d399c068dd14db258a42889c274ebe69a7fd621f5c0fce8ce25cdff41b
+            ;;
+    esac
+    zero_archive="$tmp/zero-linux-$zero_arch.tar.gz"
+    mkdir -p "$rootfs/usr/local/bin" "$rootfs/usr/local/lib/zero" "$rootfs/usr/local/share/zero"
+    curl -fsSL "https://github.com/justwasm/zero/releases/download/$zero_version/zero-$zero_version-linux-$zero_arch.tar.gz" -o "$zero_archive"
+    printf '%s  %s\n' "$zero_sha256" "$zero_archive" | sha256sum -c -
+    tar -xzf "$zero_archive" -C "$rootfs/usr/local/bin/" zero zero-seccomp zero-linux-sandbox
+    tar -xzf "$zero_archive" -C "$rootfs/usr/local/lib/zero/" --strip-components=1 bin/zero.js
+    tar -xzf "$zero_archive" -C "$rootfs/usr/local/share/zero/" package.json README.md VERSION
+    chmod 0755 "$rootfs/usr/local/bin/zero" "$rootfs/usr/local/bin/zero-seccomp" "$rootfs/usr/local/bin/zero-linux-sandbox"
+fi
+
 # Keep the default guest rootfs minimal, matching the existing x86 and RV64
 # archives. Python is an opt-in workload dependency for benchmark images.
 if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
@@ -200,6 +229,12 @@ case "$profile" in
         ;;
     peri)
         test -x "$rootfs/usr/local/bin/peri"
+        ;;
+    zero)
+        test -x "$rootfs/usr/local/bin/zero"
+        test -x "$rootfs/usr/local/bin/zero-seccomp"
+        test -x "$rootfs/usr/local/bin/zero-linux-sandbox"
+        test -f "$rootfs/usr/local/lib/zero/bin/zero.js"
         ;;
     pi)
         test -x "$rootfs/usr/bin/node"

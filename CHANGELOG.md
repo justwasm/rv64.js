@@ -6,6 +6,7 @@ uses [Semantic Versioning](https://semver.org/) once a release is tagged.
 ## Unreleased
 
 - Alpine WANIX guest profiles now include Peri Agent v3.16.5 on x86, RISC-V, and ARM64.
+- Alpine WANIX guest profiles now include Zero CLI v0.9.0 on x86, RISC-V, and ARM64.
 - RV64GCV interpreter and WebAssembly JIT for user-mode and full-system use,
   including the mandatory RVV 1.0 instruction surface for the selected
   VLEN=128/ELEN=64 machine and architecture-general direct vector lowering.

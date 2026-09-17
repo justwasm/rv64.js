@@ -110,6 +110,9 @@ $(DIST)/wanix-linux-rv64-claude.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(
 $(DIST)/wanix-linux-rv64-peri.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/rv64-config.nix
 	WANIX_GUEST_ARCH=riscv64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=peri ./build-linux-bundle.sh $@
 
+$(DIST)/wanix-linux-rv64-zero.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/rv64-config.nix
+	WANIX_GUEST_ARCH=riscv64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=zero ./build-linux-bundle.sh $@
+
 $(DIST)/wanix-linux-rv64-pi.tgz: $(LINUX_COMMON_DEPS) wanix-riscv64.patch $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/rv64-config.nix
 	WANIX_GUEST_ARCH=riscv64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=pi ./build-linux-bundle.sh $@
 
@@ -139,6 +142,9 @@ $(DIST)/wanix-linux-x86-claude.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $
 
 $(DIST)/wanix-linux-x86-peri.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/x86-v86-config.nix
 	WANIX_GUEST_ARCH=x86 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=peri ./build-linux-bundle.sh $@
+
+$(DIST)/wanix-linux-x86-zero.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/x86-v86-config.nix
+	WANIX_GUEST_ARCH=x86 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=zero ./build-linux-bundle.sh $@
 
 $(DIST)/wanix-linux-x86-pi.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/x86-v86-config.nix
 	WANIX_GUEST_ARCH=x86 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=pi ./build-linux-bundle.sh $@
@@ -170,6 +176,9 @@ $(DIST)/wanix-linux-arm64-claude.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix
 $(DIST)/wanix-linux-arm64-peri.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/arm64-config.nix
 	WANIX_GUEST_ARCH=arm64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=peri ./build-linux-bundle.sh $@
 
+$(DIST)/wanix-linux-arm64-zero.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/arm64-config.nix
+	WANIX_GUEST_ARCH=arm64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=zero ./build-linux-bundle.sh $@
+
 $(DIST)/wanix-linux-arm64-pi.tgz: $(LINUX_COMMON_DEPS) $(RV64_DIR)/flake.nix $(RV64_DIR)/kernel/arm64-config.nix
 	WANIX_GUEST_ARCH=arm64 WANIX_KERNEL_PROFILE=minimal WANIX_ROOTFS_PROFILE=pi ./build-linux-bundle.sh $@
 
@@ -199,6 +208,9 @@ linux-rv64-claude: $(DIST)/wanix-linux-rv64-claude.tgz
 
 linux-rv64-peri: $(DIST)/wanix-linux-rv64-peri.tgz
 .PHONY: linux-rv64-peri
+
+linux-rv64-zero: $(DIST)/wanix-linux-rv64-zero.tgz
+.PHONY: linux-rv64-zero
 
 linux-rv64-pi: $(DIST)/wanix-linux-rv64-pi.tgz
 .PHONY: linux-rv64-pi
@@ -230,6 +242,9 @@ linux-x86-claude: $(DIST)/wanix-linux-x86-claude.tgz
 linux-x86-peri: $(DIST)/wanix-linux-x86-peri.tgz
 .PHONY: linux-x86-peri
 
+linux-x86-zero: $(DIST)/wanix-linux-x86-zero.tgz
+.PHONY: linux-x86-zero
+
 linux-x86-pi: $(DIST)/wanix-linux-x86-pi.tgz
 .PHONY: linux-x86-pi
 
@@ -259,6 +274,9 @@ linux-arm64-claude: $(DIST)/wanix-linux-arm64-claude.tgz
 
 linux-arm64-peri: $(DIST)/wanix-linux-arm64-peri.tgz
 .PHONY: linux-arm64-peri
+
+linux-arm64-zero: $(DIST)/wanix-linux-arm64-zero.tgz
+.PHONY: linux-arm64-zero
 
 linux-arm64-pi: $(DIST)/wanix-linux-arm64-pi.tgz
 .PHONY: linux-arm64-pi
