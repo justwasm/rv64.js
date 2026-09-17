@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-arch="${1:?usage: build-wanix-release-assets.sh <riscv64|x86|arm64> <minimal|container|container-full> <output-dir>}"
-profile="${2:?usage: build-wanix-release-assets.sh <riscv64|x86|arm64> <minimal|container|container-full> <output-dir>}"
-output_dir="${3:?usage: build-wanix-release-assets.sh <riscv64|x86|arm64> <minimal|container|container-full> <output-dir>}"
+arch="${1:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <minimal|container|container-full> <output-dir>}"
+profile="${2:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <minimal|container|container-full> <output-dir>}"
+output_dir="${3:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <minimal|container|container-full> <output-dir>}"
 
 case "$arch" in
     riscv64)
@@ -11,8 +11,8 @@ case "$arch" in
         kernel_attr=virt-kernel-fast
         kernel_name=Image
         ;;
-    x86)
-        archive_arch=x86
+    x86|i686)
+        archive_arch="$arch"
         kernel_attr=v86-kernel
         kernel_name=bzImage
         ;;

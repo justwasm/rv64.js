@@ -40,6 +40,22 @@ case "$guest_arch" in
         default_out="$here/dist/wanix-linux-x86.tgz"
         kernel="${WANIX_KERNEL:-${V86_KERNEL:-}}"
         ;;
+    # archlinux32 i686 path: same v86-kernel, but the alpine docker
+    # platform still needs to match the guest's libc/musl pair. Use
+    # linux/386 so the alpine skeleton we layer on top can install
+    # riscv64+x86-only packages if anything ever wants that.
+    i686)
+        docker_platform=linux/386
+        apk_arch=x86
+        crush_arch=i386
+        peri_arch=i686
+        zero_arch=x86
+        go_arch=386
+        kernel_attr=v86-kernel
+        kernel_name=bzImage
+        default_out="$here/dist/wanix-linux-i686.tgz"
+        kernel="${WANIX_KERNEL:-${V86_KERNEL:-}}"
+        ;;
     arm64)
         docker_platform=linux/arm64
         apk_arch=aarch64
@@ -53,7 +69,7 @@ case "$guest_arch" in
         kernel="${WANIX_KERNEL:-${ARM64_KERNEL:-}}"
         ;;
     *)
-        echo "unsupported WANIX_GUEST_ARCH: $guest_arch (expected riscv64, x86, or arm64)" >&2
+        echo "unsupported WANIX_GUEST_ARCH: $guest_arch (expected riscv64, x86, i686, or arm64)" >&2
         exit 2
         ;;
 esac
