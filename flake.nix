@@ -172,13 +172,13 @@
                   ;;
               esac
               runHook postUnpack
-            ';
+            '';
             installPhase = ''
               runHook preInstall
               mkdir -p "$out"
               cp -a "$NIX_BUILD_TOP/rootfs"/. "$out"/
               runHook postInstall
-            ';
+            '';
           };
 
           archBootstrap_riscv64 = archBootstrap {
