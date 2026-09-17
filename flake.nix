@@ -176,9 +176,10 @@
             sha256 = "a2045c8b62232db2f60d8e4db610dbb5d9e12856dab0ba08634ad3d7cb7ad498";
             };
             archBootstrap_aarch64 = archBootstrap {
-            url = "https://ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz";
-            sha256 = "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319";
-            };
+              url = "https://ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz";
+              sha256 = "42a4eeaa038994ffd31fa173256ef2f0ef511358eeb41b9ea1f8626391b9b319";
+              format = "gz";
+              };
           # i686 has no published bootstrap tarball. Run pacstrap under
           # qemu-user-i386-static inside the build sandbox against the
           # ufscar mirror. The recipe stays opt-in: builds that do not
