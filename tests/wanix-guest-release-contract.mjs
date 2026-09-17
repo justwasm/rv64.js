@@ -91,6 +91,32 @@ required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/pi" >/dev/null', 
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
 
 const bundle = read("integrations/wanix/build-linux-bundle.sh");
+
+required(bundle, 'WANIX_ROOTFS=arch', "Arch rootfs opt-in");
+required(bundle, 'rootfs_nix="${WANIX_ROOTFS_NIX:-', "Arch rootfs Nix output lookup");
+required(bundle, 'arch_subdir="$rootfs_nix/$guest_arch"', "Arch rootfs arch subdir");
+required(bundle, 'cp "$here/arch-configs/pacman.conf" "$rootfs/etc/pacman.conf"', "Arch pacman.conf override");
+required(bundle, 'cp "$here/arch-configs/mirrorlist" "$rootfs/etc/pacman.d/mirrorlist"', "Arch mirrorlist override");
+required(bundle, 'cp "$here/arch-configs/mirrorlist.riscv64" "$rootfs/etc/pacman.d/mirrorlist"', "Arch riscv64 mirrorlist override");
+
+const flakeArch = read("flake.nix");
+required(flakeArch, "packages.arch-bootstrap-x86_64", "flake arch x86_64 recipe");
+required(flakeArch, "packages.arch-bootstrap-riscv64", "flake arch riscv64 recipe");
+required(flakeArch, "packages.arch-bootstrap-i686", "flake arch i686 recipe");
+required(flakeArch, "packages.arch-bootstrap-aarch64", "flake arch aarch64 recipe");
+required(flakeArch, "packages.arch-recipe", "flake arch bundle recipe");
+required(flakeArch, "archlinux-bootstrap-x86_64.tar.zst", "flake arch x86_64 url");
+required(flakeArch, "archriscv-latest.tar.zst", "flake arch riscv64 url");
+required(flakeArch, "archlinux32-bootstrap", "flake arch i686 source");
+required(flakeArch, "archlinuxarm-keyring", "flake arch aarch64 source");
+
+const mirrorlistNames = ["mirrorlist", "mirrorlist.riscv64"];
+for (const name of mirrorlistNames) {
+    const source = read(`integrations/wanix/arch-configs/${name}`);
+    required(source, "Server = https://", `${name} must declare a mirror`);
+}
+required(read("integrations/wanix/arch-configs/pacman.conf"), "Include = /etc/pacman.d/mirrorlist", "pacman.conf must include the mirror list");
+required(read("integrations/wanix/arch-configs/pacman-bootstrap.conf"), "Include = /etc/pacman.d/mirrorlist", "pacman-bootstrap.conf must include the mirror list");
 required(bundle, "crush_version=v0.94.0", "Crush release version");
 for (const pair of [
   ["riscv64", "b2798cd2d44312714bb389d3cd3de12fbbd80c74f4b912b635c1855fc2e81676"],

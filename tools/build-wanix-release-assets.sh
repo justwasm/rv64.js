@@ -69,6 +69,7 @@ WANIX_KERNEL="$kernel_path" \
 WANIX_GUEST_ARCH="$arch" \
 WANIX_KERNEL_PROFILE="$kernel_profile" \
 WANIX_ROOTFS_PROFILE="$rootfs_profile" \
+WANIX_ROOTFS="${WANIX_ROOTFS:-alpine}" \
 ALPINE_TAG=3.24 \
   integrations/wanix/build-linux-bundle.sh \
   "$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"

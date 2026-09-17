@@ -122,6 +122,36 @@ test -n "$kernel"
 mkdir -p "$rootfs"
 "$docker_cmd" export "$container" | tar -C "$rootfs" -xf -
 
+# Arch Linux swap-in: when WANIX_ROOTFS=arch, replace the alpine rootfs
+# with the matching upstream Arch bootstrap produced by the Nix recipe
+# `arch-recipe` (see flake.nix). The recipe ships per-arch subdirs under
+# $rootfs_nix/<arch>/; we copy the requested arch on top of the alpine
+# skeleton. WANIX_ROOTFS_KEEP_ALPINE=1 keeps the alpine export as a base
+# layer (handy for adding apk fallback tools before pacstrap runs).
+rootfs_nix="${WANIX_ROOTFS_NIX:-$(nix build --no-link --print-out-paths "path:$rv64_dir#arch-recipe" 2>/dev/null || true)}"
+if [ -n "${WANIX_ROOTFS:-}" ] && [ "$WANIX_ROOTFS" = arch ] && [ -n "$rootfs_nix" ]; then
+    arch_subdir="$rootfs_nix/$guest_arch"
+    if [ ! -d "$arch_subdir" ]; then
+        echo "arch bootstrap for guest arch '$guest_arch' missing under $rootfs_nix" >&2
+        exit 2
+    fi
+    # Preserve the alpine skeleton (usr/local/bin, etc.) so later apk
+    # fallbacks still work; overwrite the system tree with the Arch
+    # bootstrap contents. Bind-mounted paths keep working because the
+    # overlay is created lazily.
+    cp -a "$arch_subdir"/. "$rootfs"/
+    # Drop in our pacman configs and mirrorlist so the guest's pacman is
+    # wired to the curated mirrors at first-boot. Wipe any preexisting
+    # mirrorlist that came with the upstream bootstrap.
+    rm -f "$rootfs/etc/pacman.d/mirrorlist"
+    cp "$here/arch-configs/pacman.conf" "$rootfs/etc/pacman.conf"
+    if [ "$guest_arch" = riscv64 ]; then
+        cp "$here/arch-configs/mirrorlist.riscv64" "$rootfs/etc/pacman.d/mirrorlist"
+    else
+        cp "$here/arch-configs/mirrorlist" "$rootfs/etc/pacman.d/mirrorlist"
+    fi
+fi
+
 if [ "$profile" = crush ]; then
     crush_version=v0.94.0
     case "$crush_arch" in
