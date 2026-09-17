@@ -72,8 +72,11 @@ case "$profile" in
     python)
         profile_packages=(python3 uv)
         ;;
-    nodejs|claude)
+    nodejs)
         profile_packages=(nodejs-current npm)
+        ;;
+    claude)
+        profile_packages=(nodejs-current npm ripgrep)
         ;;
     golang)
         profile_packages=(go)
@@ -141,7 +144,7 @@ if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
 fi
 if [ "$profile" = claude ]; then
     "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
-        sh -ec 'apk add --no-cache nodejs-current npm; npm --prefix /target/usr/local install --global claude-code-best'
+        sh -ec 'apk add --no-cache nodejs-current npm ripgrep; npm --prefix /target/usr/local install --global claude-code-best'
 fi
 case "$profile" in
     crush)
@@ -158,6 +161,7 @@ case "$profile" in
     claude)
         test -x "$rootfs/usr/bin/node"
         test -x "$rootfs/usr/bin/npm"
+        test -x "$rootfs/usr/bin/rg"
         test -L "$rootfs/usr/local/bin/claude-code-best"
         ;;
     golang)

@@ -91,6 +91,7 @@ case "$rootfs_profile" in
     claude)
         tar -tf "$archive" --wildcards "usr/bin/node" >/dev/null
         tar -tf "$archive" --wildcards "usr/bin/npm" >/dev/null
+        tar -tf "$archive" --wildcards "usr/bin/rg" >/dev/null
         tar -tf "$archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null
         ;;
     golang)

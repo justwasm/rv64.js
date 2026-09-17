@@ -80,6 +80,7 @@ for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "
   required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} archive verification`);
 }
 required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/crush" >/dev/null', "Crush archive verification");
+required(build, 'tar -tf "$archive" --wildcards "usr/bin/rg" >/dev/null', "ripgrep archive verification");
 required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null', "Claude archive verification");
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
 
@@ -97,7 +98,9 @@ required(bundle, 'test -x "$rootfs/usr/local/bin/crush"', "Crush rootfs validati
 required(bundle, "chmod -R u+rwX \"$tmp\"", "temporary guest cleanup permissions");
 required(bundle, "profile_packages=(python3 uv)", "Python profile package set");
 required(bundle, "profile_packages=(nodejs-current npm)", "Node.js profile package set");
+required(bundle, "profile_packages=(nodejs-current npm ripgrep)", "Claude profile package set");
 required(bundle, "npm --prefix /target/usr/local install --global claude-code-best", "Claude Code Best installation");
+required(bundle, 'test -x "$rootfs/usr/bin/rg"', "ripgrep rootfs validation");
 required(bundle, 'test -L "$rootfs/usr/local/bin/claude-code-best"', "Claude command validation");
 required(bundle, "profile_packages=(go)", "Go profile package set");
 required(bundle, "profile_packages=(attr ca-certificates podman python3 strace tmux uv)", "full OCI, Python, multitasking, and debugging package set");
