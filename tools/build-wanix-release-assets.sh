@@ -2,9 +2,12 @@
 set -euo pipefail
 
 arch="${1:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <minimal|container|container-full> <output-dir>}"
-profile="${2:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|container|container-full> <output-dir>}"
-output_dir="${3:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|container|container-full> <output-dir>}"
+profile="${2:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <profile> <output-dir>}"
+output_dir="${3:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <profile> <output-dir>}"
 build_part="${WANIX_BUILD_PART:-both}"
+if [ "$build_part" = overlay ]; then
+    profile=minimal
+fi
 
 case "$arch" in
     riscv64)
@@ -77,7 +80,7 @@ WANIX_ROOTFS="${WANIX_ROOTFS:-alpine}" \
 ALPINE_TAG=3.24 \
   integrations/wanix/build-linux-bundle.sh \
   "$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz" \
-  "$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
+  "$output_dir/wanix-overlay-${archive_arch}.tgz"
 
 if [ "$build_part" = rootfs ]; then
     archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
@@ -93,12 +96,12 @@ fi
 
 file "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
 if [ "$build_part" = overlay ]; then
-    test -s "$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
-    file "$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
+    test -s "$output_dir/wanix-overlay-${archive_arch}.tgz"
+    file "$output_dir/wanix-overlay-${archive_arch}.tgz"
     exit 0
 fi
 archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
-overlay_archive="$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
+overlay_archive="$output_dir/wanix-overlay-${archive_arch}.tgz"
 # The kernel is published as a separate rv64-kernel-<arch>-<profile>
 # asset, not embedded in the overlay. Overlay profile (crush / claude
 # / ...) and kernel profile (minimal / container) are independent.

@@ -207,7 +207,7 @@ if [ "${WANIX_ROOTFS:-}" = arch ]; then
     esac
 fi
 
-if [ "$build_part" != rootfs ] && [ "$profile" = crush ]; then
+if [ "$build_part" != overlay ] && [ "$profile" = crush ]; then
     crush_version=v0.94.0
     case "$crush_arch" in
         riscv64)
@@ -222,14 +222,14 @@ if [ "$build_part" != rootfs ] && [ "$profile" = crush ]; then
     esac
     crush_archive="$tmp/crush.tar.gz"
     crush_stage="$tmp/crush"
-    mkdir -p "$crush_stage" "$overlay/usr/local/bin"
+    mkdir -p "$crush_stage" "$rootfs/usr/local/bin"
     curl -fsSL "https://github.com/justwasm/crush/releases/download/$crush_version/crush_${crush_version}_Linux_${crush_arch}.tar.gz" -o "$crush_archive"
     printf '%s  %s\n' "$crush_sha256" "$crush_archive" | sha256sum -c -
     tar -xzf "$crush_archive" --strip-components=1 -C "$crush_stage"
-    install -m 0755 "$crush_stage/crush" "$overlay/usr/local/bin/crush"
+    install -m 0755 "$crush_stage/crush" "$rootfs/usr/local/bin/crush"
 fi
 
-if [ "$build_part" != rootfs ] && [ "$profile" = peri ]; then
+if [ "$build_part" != overlay ] && [ "$profile" = peri ]; then
     peri_version=agent-v3.16.5
     case "$peri_arch" in
         riscv64)
@@ -243,14 +243,14 @@ if [ "$build_part" != rootfs ] && [ "$profile" = peri ]; then
             ;;
     esac
     peri_archive="$tmp/peri-linux-$peri_arch.tar.gz"
-    mkdir -p "$overlay/usr/local/bin"
+    mkdir -p "$rootfs/usr/local/bin"
     curl -fsSL "https://github.com/justwasm/peri/releases/download/$peri_version/peri-linux-$peri_arch.tar.gz" -o "$peri_archive"
     printf '%s  %s\n' "$peri_sha256" "$peri_archive" | sha256sum -c -
-    tar -xzf "$peri_archive" -O "peri-linux-$peri_arch" >"$overlay/usr/local/bin/peri"
-    chmod 0755 "$overlay/usr/local/bin/peri"
+    tar -xzf "$peri_archive" -O "peri-linux-$peri_arch" >"$rootfs/usr/local/bin/peri"
+    chmod 0755 "$rootfs/usr/local/bin/peri"
 fi
 
-if [ "$build_part" != rootfs ] && [ "$profile" = zero ]; then
+if [ "$build_part" != overlay ] && [ "$profile" = zero ]; then
     zero_version=v0.9.0
     case "$zero_arch" in
         riscv64)
@@ -264,13 +264,13 @@ if [ "$build_part" != rootfs ] && [ "$profile" = zero ]; then
             ;;
     esac
     zero_archive="$tmp/zero-linux-$zero_arch.tar.gz"
-    mkdir -p "$overlay/usr/local/bin" "$overlay/usr/local/lib/zero/bin" "$overlay/usr/local/share/zero"
+    mkdir -p "$rootfs/usr/local/bin" "$rootfs/usr/local/lib/zero/bin" "$rootfs/usr/local/share/zero"
     curl -fsSL "https://github.com/justwasm/zero/releases/download/$zero_version/zero-$zero_version-linux-$zero_arch.tar.gz" -o "$zero_archive"
     printf '%s  %s\n' "$zero_sha256" "$zero_archive" | sha256sum -c -
-    tar -xzf "$zero_archive" -C "$overlay/usr/local/bin/" zero zero-seccomp zero-linux-sandbox
-    tar -xzf "$zero_archive" -C "$overlay/usr/local/lib/zero/bin/" --strip-components=1 bin/zero.js
-    tar -xzf "$zero_archive" -C "$overlay/usr/local/share/zero/" package.json README.md VERSION
-    chmod 0755 "$overlay/usr/local/bin/zero" "$overlay/usr/local/bin/zero-seccomp" "$overlay/usr/local/bin/zero-linux-sandbox"
+    tar -xzf "$zero_archive" -C "$rootfs/usr/local/bin/" zero zero-seccomp zero-linux-sandbox
+    tar -xzf "$zero_archive" -C "$rootfs/usr/local/lib/zero/bin/" --strip-components=1 bin/zero.js
+    tar -xzf "$zero_archive" -C "$rootfs/usr/local/share/zero/" package.json README.md VERSION
+    chmod 0755 "$rootfs/usr/local/bin/zero" "$rootfs/usr/local/bin/zero-seccomp" "$rootfs/usr/local/bin/zero-linux-sandbox"
 fi
 
 if [ "$build_part" != overlay ]; then
@@ -287,11 +287,11 @@ if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
         --repository "https://dl-cdn.alpinelinux.org/alpine/v${alpine_tag%.*}/community" \
         add "${packages[@]}"
 fi
-if [ "$profile" = claude ]; then
+if [ "$build_part" != overlay ] && [ "$profile" = claude ]; then
     "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
         sh -ec 'apk add --no-cache nodejs-current npm ripgrep; npm --prefix /target/usr/local install --global claude-code-best'
 fi
-if [ "$profile" = pi ]; then
+if [ "$build_part" != overlay ] && [ "$profile" = pi ]; then
     "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
         sh -ec 'apk add --no-cache nodejs-current npm; npm --prefix /target/usr/local install --global --ignore-scripts @earendil-works/pi-coding-agent'
 fi
@@ -335,16 +335,16 @@ fi
 if [ "$build_part" != rootfs ]; then
 case "$profile" in
     crush)
-        test -x "$overlay/usr/local/bin/crush"
+        test -x "$rootfs/usr/local/bin/crush"
         ;;
     peri)
-        test -x "$overlay/usr/local/bin/peri"
+        test -x "$rootfs/usr/local/bin/peri"
         ;;
     zero)
-        test -x "$overlay/usr/local/bin/zero"
-        test -x "$overlay/usr/local/bin/zero-seccomp"
-        test -x "$overlay/usr/local/bin/zero-linux-sandbox"
-        test -f "$overlay/usr/local/lib/zero/bin/zero.js"
+        test -x "$rootfs/usr/local/bin/zero"
+        test -x "$rootfs/usr/local/bin/zero-seccomp"
+        test -x "$rootfs/usr/local/bin/zero-linux-sandbox"
+        test -f "$rootfs/usr/local/lib/zero/bin/zero.js"
         ;;
 esac
 fi

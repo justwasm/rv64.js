@@ -70,7 +70,7 @@ for (const profile of ["minimal", "crush", "python", "nodejs", "claude", "peri",
   required(build, `    ${profile})`, "guest build profile");
 }
 required(build, "ALPINE_TAG=3.24", "guest Alpine version");
-required(build, 'overlay_archive="$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"', "overlay archive variable");
+required(build, 'overlay_archive="$output_dir/wanix-overlay-${archive_arch}.tgz"', "per-architecture overlay archive variable");
 for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "node", "npm", "go"]) {
   required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} rootfs verification`);
 }
@@ -114,7 +114,7 @@ for (const pair of [
   required(bundle, `crush_arch=${pair[0]}`, `Crush ${pair[0]} archive mapping`);
   required(bundle, `crush_sha256=${pair[1]}`, `Crush ${pair[0]} archive checksum`);
 }
-required(bundle, 'test -x "$overlay/usr/local/bin/crush"', "Crush overlay validation");
+required(bundle, 'test -x "$rootfs/usr/local/bin/crush"', "Crush rootfs validation");
 required(bundle, "chmod -R u+rwX \"$tmp\"", "temporary guest cleanup permissions");
 required(bundle, "profile_packages=(python3 uv)", "Python profile package set");
 required(bundle, "profile_packages=(nodejs-current npm)", "Node.js profile package set");
@@ -131,7 +131,7 @@ for (const pair of [
   required(bundle, `peri_arch=${pair[0]}`, `Peri ${pair[0]} archive mapping`);
   required(bundle, `peri_sha256=${pair[1]}`, `Peri ${pair[0]} archive checksum`);
 }
-required(bundle, 'test -x "$overlay/usr/local/bin/peri"', "Peri command validation");
+required(bundle, 'test -x "$rootfs/usr/local/bin/peri"', "Peri rootfs validation");
 required(bundle, "zero_version=v0.9.0", "Zero release version");
 for (const pair of [
   ["riscv64", "e7ce4e66e230661056176a57dc0018b32b799f2ce9d8946d9625b7dfb8ada4af"],
@@ -141,10 +141,10 @@ for (const pair of [
   required(bundle, `zero_arch=${pair[0]}`, `Zero ${pair[0]} archive mapping`);
   required(bundle, `zero_sha256=${pair[1]}`, `Zero ${pair[0]} archive checksum`);
 }
-required(bundle, 'test -x "$overlay/usr/local/bin/zero"', "Zero command validation");
-required(bundle, 'test -x "$overlay/usr/local/bin/zero-seccomp"', "Zero seccomp validation");
-required(bundle, 'test -x "$overlay/usr/local/bin/zero-linux-sandbox"', "Zero sandbox validation");
-required(bundle, 'test -f "$overlay/usr/local/lib/zero/bin/zero.js"', "Zero runtime validation");
+required(bundle, 'test -x "$rootfs/usr/local/bin/zero"', "Zero rootfs validation");
+required(bundle, 'test -x "$rootfs/usr/local/bin/zero-seccomp"', "Zero seccomp rootfs validation");
+required(bundle, 'test -x "$rootfs/usr/local/bin/zero-linux-sandbox"', "Zero sandbox rootfs validation");
+required(bundle, 'test -f "$rootfs/usr/local/lib/zero/bin/zero.js"', "Zero runtime rootfs validation");
 required(bundle, "profile_packages=(nodejs-current npm)", "Pi profile package set");
 required(bundle, "npm --prefix /target/usr/local install --global --ignore-scripts @earendil-works/pi-coding-agent", "Pi Coding Agent installation");
 required(bundle, 'test -L "$rootfs/usr/local/bin/pi"', "Pi command validation");

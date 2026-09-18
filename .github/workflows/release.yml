@@ -368,7 +368,7 @@ jobs:
           gh release upload "$release_tag" target/wanix-rootfs/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz --repo "$GITHUB_REPOSITORY" --clobber
 
   build-wanix-overlays:
-    name: Build ${{ matrix.arch }}-${{ matrix.profile }} overlay
+    name: Build ${{ matrix.arch }} overlay
     needs: prepare-release
     runs-on: ubuntu-latest
     timeout-minutes: 240
@@ -378,7 +378,6 @@ jobs:
       fail-fast: false
       matrix:
         arch: [riscv64, x86, arm64]
-        profile: [minimal, crush, python, nodejs, claude, peri, zero, pi, golang, container, container-full]
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
@@ -395,11 +394,11 @@ jobs:
           WANIX_BUILD_PART: overlay
         run: |
           chmod +x tools/build-wanix-release-assets.sh
-          tools/build-wanix-release-assets.sh "${{ matrix.arch }}" "${{ matrix.profile }}" "target/wanix-overlays/${{ matrix.arch }}-${{ matrix.profile }}"
+          tools/build-wanix-release-assets.sh "${{ matrix.arch }}" minimal "target/wanix-overlays/${{ matrix.arch }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: wanix-overlay-${{ matrix.arch }}-${{ matrix.profile }}
-          path: target/wanix-overlays/${{ matrix.arch }}-${{ matrix.profile }}/wanix-overlay-*.tgz
+          name: wanix-overlay-${{ matrix.arch }}
+          path: target/wanix-overlays/${{ matrix.arch }}/wanix-overlay-*.tgz
           if-no-files-found: error
           retention-days: 7
       - name: Publish guest archive immediately (overlay)
@@ -407,4 +406,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
-          gh release upload "$release_tag" target/wanix-overlays/${{ matrix.arch }}-${{ matrix.profile }}/wanix-overlay-*.tgz --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$release_tag" target/wanix-overlays/${{ matrix.arch }}/wanix-overlay-*.tgz --repo "$GITHUB_REPOSITORY" --clobber
