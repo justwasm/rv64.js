@@ -105,6 +105,110 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-kernels:
+    name: Build ${{ matrix.arch }}-${{ matrix.profile }} kernel
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: riscv64
+            profile: minimal
+            attr: virt-kernel-fast
+            image: Image
+          - arch: riscv64
+            profile: container
+            attr: virt-kernel-fast-container
+            image: Image
+          - arch: x86
+            profile: minimal
+            attr: v86-kernel
+            image: bzImage
+          - arch: x86
+            profile: container
+            attr: v86-kernel-container
+            image: bzImage
+          - arch: arm64
+            profile: minimal
+            attr: arm64-kernel
+            image: Image
+          - arch: arm64
+            profile: container
+            attr: arm64-kernel-container
+            image: Image
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Build kernel
+        env:
+          KERNEL_ATTR: ${{ matrix.attr }}
+          KERNEL_IMAGE: ${{ matrix.image }}
+          KERNEL_NAME: rv64-kernel-${{ matrix.arch }}-${{ matrix.profile }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(nix build --no-link --print-out-paths ".#${KERNEL_ATTR}")"
+          test -s "$output/$KERNEL_IMAGE"
+          mkdir -p target/kernels
+          install -m 0644 "$output/$KERNEL_IMAGE" "target/kernels/$KERNEL_NAME"
+          file "target/kernels/$KERNEL_NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ matrix.arch }}-${{ matrix.profile }}
+          path: target/kernels/rv64-kernel-${{ matrix.arch }}-${{ matrix.profile }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-kernels:
+    name: Publish independent kernel assets
+    needs: [prepare-release, build-kernels]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kernel-*
+          path: target/kernels
+          merge-multiple: true
+
+      - name: Verify and checksum kernels
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target/kernels
+          expected=(
+            rv64-kernel-riscv64-minimal
+            rv64-kernel-riscv64-container
+            rv64-kernel-x86-minimal
+            rv64-kernel-x86-container
+            rv64-kernel-arm64-minimal
+            rv64-kernel-arm64-container
+          )
+          for kernel in "${expected[@]}"; do
+            test -s "$kernel"
+          done
+          test "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq "${#expected[@]}"
+          sha256sum "${expected[@]}" > KERNELS-SHA256SUMS
+
+      - name: Publish kernel assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          gh release upload "$release_tag" target/kernels/* \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
   build-rv64-archive:
     name: Build WANIX rv64 archive
     runs-on: ubuntu-latest
