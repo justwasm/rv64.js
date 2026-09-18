@@ -192,24 +192,24 @@
           # ufscar mirror. The recipe stays opt-in: builds that do not
           # need i686 simply never reference `archBootstrap_i686`.
           archBootstrap_i686 = pkgs.runCommand "arch-bootstrap-i686" {
-          nativeBuildInputs = [
-            pkgs.qemu_user
-            pkgs.pkgsi686Linux.pacstrap
-          ];
+            nativeBuildInputs = [
+              pkgs.qemu_user
+              pkgs.pkgsi686Linux.pacstrap
+            ];
           } ''
-          mkdir -p "$out"
-          # The sandbox already provides binfmt for i386; force the
-          # interpreter so pacstrap does not try to invoke itself under
-          # the host dynamic linker. arch-install-scripts' pacstrap
-          # honours -G (copy host gpg keyring) and -M (no mirrorlist
-          # copy) so we can inject our own /etc/pacman.d/mirrorlist via
-          # the build's $pacman_bootstrap_conf below.
-          ${pkgs.qemu_user}/bin/qemu-i386-static \
-            -L ${pkgs.pkgsi686Linux.stdenv} \
-            -E PATH=${pkgs.pkgsi686Linux.bash}/bin:${pkgs.pkgsi686Linux.coreutils}/bin:${pkgs.pkgsi686Linux.gnused}/bin \
-            ${pkgs.pkgsi686Linux.pacstrap}/bin/pacstrap \
-            -G -M -C ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} \
-            -K "$out" base >/dev/null
+            mkdir -p "$out"
+            # The sandbox already provides binfmt for i386; force the
+            # interpreter so pacstrap does not try to invoke itself under
+            # the host dynamic linker. arch-install-scripts' pacstrap
+            # honours -G (copy host gpg keyring) and -M (no mirrorlist
+            # copy) so we can inject our own /etc/pacman.d/mirrorlist via
+            # the build's $pacman_bootstrap_conf below.
+            ${pkgs.qemu_user}/bin/qemu-i386-static \
+              -L ${pkgs.pkgsi686Linux.stdenv} \
+              -E PATH=${pkgs.pkgsi686Linux.bash}/bin:${pkgs.pkgsi686Linux.coreutils}/bin:${pkgs.pkgsi686Linux.gnused}/bin \
+              ${pkgs.pkgsi686Linux.pacstrap}/bin/pacstrap \
+              -G -M -C ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} \
+              -K "$out" base >/dev/null
           '';
 
           archRecipe = pkgs.runCommand "wanix-linux-arch-recipe" { } ''
@@ -221,11 +221,12 @@
             cp ${./integrations/wanix/arch-configs/mirrorlist.riscv64} "$out/etc/mirrorlist.riscv64"
             cp ${./integrations/wanix/arch-configs/pacman.conf} "$out/etc/pacman.conf"
             cp ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} "$out/etc/pacman-bootstrap.conf"
-            '';
-            # i686 rootfs is built via pacstrap (no upstream tarball);
-            # consumers opt in explicitly so the riscv64 + aarch64 aggregate
-            # does not pull pkgsi686Linux into the build sandbox.
-            archRecipeWithI686 = pkgs.runCommand "wanix-linux-arch-recipe-i686" { } ''
+          '';
+
+          # i686 rootfs is built via pacstrap (no upstream tarball);
+          # consumers opt in explicitly so the riscv64 + aarch64 aggregate
+          # does not pull pkgsi686Linux into the build sandbox.
+          archRecipeWithI686 = pkgs.runCommand "wanix-linux-arch-recipe-i686" { } ''
             mkdir -p "$out"
             cp -R ${archBootstrap_riscv64}   "$out/riscv64"
             cp -R ${archBootstrap_i686}      "$out/i686"
@@ -236,7 +237,7 @@
             cp ${./integrations/wanix/arch-configs/mirrorlist.i686} "$out/etc/mirrorlist.i686"
             cp ${./integrations/wanix/arch-configs/pacman.conf} "$out/etc/pacman.conf"
             cp ${./integrations/wanix/arch-configs/pacman-bootstrap.conf} "$out/etc/pacman-bootstrap.conf"
-            '';
+          '';
           in
           {
           packages.virt-kernel = virtKernel;
