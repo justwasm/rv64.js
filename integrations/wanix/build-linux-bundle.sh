@@ -196,13 +196,13 @@ if [ "$profile" = peri ]; then
     peri_version=agent-v3.16.5
     case "$peri_arch" in
         riscv64)
-            peri_sha256=e1c15813c2f7a73e7b980f839eb0224c490887f51cb601d75b6245b62d0f891c
+            peri_sha256=acb827a9d1d4f97eb57ee80b60de9701054533558a29854ca1f1c9731c473e36
             ;;
         i686)
-            peri_sha256=4caa76cd61cf959c9814233dd5c333af1194a31c5cb4d0697b748ac256c7e406
+            peri_sha256=96978b393068b051069c60d72399b30d53896c6a1f531ac14b2869e92ae7596f
             ;;
         aarch64)
-            peri_sha256=93bebb64cd6624095d4f1456647ee01e029849f35ecf90f6a32ef1a6158678b6
+            peri_sha256=0c39d13cd13cb058e9888afd918fe2debb1a71060d3c55b6ec1bffdb2b02c385
             ;;
     esac
     peri_archive="$tmp/peri-linux-$peri_arch.tar.gz"
