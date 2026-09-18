@@ -70,39 +70,34 @@ for (const profile of ["minimal", "crush", "python", "nodejs", "claude", "peri",
   required(build, `    ${profile})`, "guest build profile");
 }
 required(build, "ALPINE_TAG=3.24", "guest Alpine version");
-required(
-  build,
-  'archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"',
-  "archive verification",
-);
-required(build, "tar -tf \"$archive\" --wildcards \"boot/$kernel_name\" >/dev/null", "archive verification");
+required(build, 'overlay_archive="$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"', "overlay archive variable");
+required(build, "tar -tf \"$overlay_archive\" --wildcards \"boot/$kernel_name\" >/dev/null", "kernel in overlay archive");
 for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "node", "npm", "go"]) {
-  required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} archive verification`);
+  required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} rootfs verification`);
 }
-required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/crush" >/dev/null', "Crush archive verification");
-required(build, 'tar -tf "$archive" --wildcards "usr/bin/rg" >/dev/null', "ripgrep archive verification");
-required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null', "Claude archive verification");
-required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/peri" >/dev/null', "Peri archive verification");
-required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/zero" >/dev/null', "Zero archive verification");
-required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/zero-seccomp" >/dev/null', "Zero seccomp verification");
-required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/zero-linux-sandbox" >/dev/null', "Zero sandbox verification");
-required(build, 'tar -tf "$archive" --wildcards "usr/local/lib/zero/bin/zero.js" >/dev/null', "Zero runtime verification");
-required(build, 'tar -tf "$archive" --wildcards "usr/local/bin/pi" >/dev/null', "Pi archive verification");
+required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/crush" >/dev/null', "Crush overlay verification");
+required(build, 'tar -tf "$archive" --wildcards "usr/bin/rg" >/dev/null', "ripgrep rootfs verification");
+required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null', "Claude overlay verification");
+required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/peri" >/dev/null', "Peri overlay verification");
+required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/zero" >/dev/null', "Zero overlay verification");
+required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/zero-seccomp" >/dev/null', "Zero seccomp verification");
+required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/zero-linux-sandbox" >/dev/null', "Zero sandbox verification");
+required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/lib/zero/bin/zero.js" >/dev/null', "Zero runtime verification");
+required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/pi" >/dev/null', "Pi overlay verification");
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
 
 const bundle = read("integrations/wanix/build-linux-bundle.sh");
 
 required(bundle, 'WANIX_ROOTFS=arch', "Arch rootfs opt-in");
-required(bundle, 'rootfs_nix="${WANIX_ROOTFS_NIX:-', "Arch rootfs Nix output lookup");
-required(bundle, 'arch_subdir="$rootfs_nix/$guest_arch"', "Arch rootfs arch subdir");
+required(bundle, 'WANIX_ROOTFS_TARBALL', "Arch rootfs tarball path");
+required(bundle, 'tar -xzf "$arch_tarball" -C "$rootfs"', "Arch rootfs extraction");
 required(bundle, 'cp "$here/arch-configs/pacman.conf" "$rootfs/etc/pacman.conf"', "Arch pacman.conf override");
 required(bundle, 'cp "$here/arch-configs/mirrorlist" "$rootfs/etc/pacman.d/mirrorlist"', "Arch mirrorlist override");
 required(bundle, 'cp "$here/arch-configs/mirrorlist.riscv64" "$rootfs/etc/pacman.d/mirrorlist"', "Arch riscv64 mirrorlist override");
 
-// Arch rootfs recipes now live in ../archlinux (btwiuse/archlinux). The
-// wanix guest bundle still overlays a pacman mirrorlist and pacman.conf
-// onto an Arch bootstrap tarball when WANIX_ROOTFS=arch; that path is
-// exercised in the archlinux repo's pipeline, not here.
+// Arch rootfs tarballs now come from btwiuse/archlinux; the wanix
+// guest bundle overlays pacman.conf + mirrorlist on top so first-boot
+// pacman hits the curated mirrors instead of upstream defaults.
 const mirrorlistNames = ["mirrorlist", "mirrorlist.riscv64"];
 for (const name of mirrorlistNames) {
     const source = read(`integrations/wanix/arch-configs/${name}`);
@@ -119,7 +114,7 @@ for (const pair of [
   required(bundle, `crush_arch=${pair[0]}`, `Crush ${pair[0]} archive mapping`);
   required(bundle, `crush_sha256=${pair[1]}`, `Crush ${pair[0]} archive checksum`);
 }
-required(bundle, 'test -x "$rootfs/usr/local/bin/crush"', "Crush rootfs validation");
+required(bundle, 'test -x "$overlay/usr/local/bin/crush"', "Crush overlay validation");
 required(bundle, "chmod -R u+rwX \"$tmp\"", "temporary guest cleanup permissions");
 required(bundle, "profile_packages=(python3 uv)", "Python profile package set");
 required(bundle, "profile_packages=(nodejs-current npm)", "Node.js profile package set");
@@ -136,7 +131,7 @@ for (const pair of [
   required(bundle, `peri_arch=${pair[0]}`, `Peri ${pair[0]} archive mapping`);
   required(bundle, `peri_sha256=${pair[1]}`, `Peri ${pair[0]} archive checksum`);
 }
-required(bundle, 'test -x "$rootfs/usr/local/bin/peri"', "Peri command validation");
+required(bundle, 'test -x "$overlay/usr/local/bin/peri"', "Peri command validation");
 required(bundle, "zero_version=v0.9.0", "Zero release version");
 for (const pair of [
   ["riscv64", "e7ce4e66e230661056176a57dc0018b32b799f2ce9d8946d9625b7dfb8ada4af"],
@@ -146,10 +141,10 @@ for (const pair of [
   required(bundle, `zero_arch=${pair[0]}`, `Zero ${pair[0]} archive mapping`);
   required(bundle, `zero_sha256=${pair[1]}`, `Zero ${pair[0]} archive checksum`);
 }
-required(bundle, 'test -x "$rootfs/usr/local/bin/zero"', "Zero command validation");
-required(bundle, 'test -x "$rootfs/usr/local/bin/zero-seccomp"', "Zero seccomp validation");
-required(bundle, 'test -x "$rootfs/usr/local/bin/zero-linux-sandbox"', "Zero sandbox validation");
-required(bundle, 'test -f "$rootfs/usr/local/lib/zero/bin/zero.js"', "Zero runtime validation");
+required(bundle, 'test -x "$overlay/usr/local/bin/zero"', "Zero command validation");
+required(bundle, 'test -x "$overlay/usr/local/bin/zero-seccomp"', "Zero seccomp validation");
+required(bundle, 'test -x "$overlay/usr/local/bin/zero-linux-sandbox"', "Zero sandbox validation");
+required(bundle, 'test -f "$overlay/usr/local/lib/zero/bin/zero.js"', "Zero runtime validation");
 required(bundle, "profile_packages=(nodejs-current npm)", "Pi profile package set");
 required(bundle, "npm --prefix /target/usr/local install --global --ignore-scripts @earendil-works/pi-coding-agent", "Pi Coding Agent installation");
 required(bundle, 'test -L "$rootfs/usr/local/bin/pi"', "Pi command validation");
@@ -161,7 +156,7 @@ for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "
 required(bundle, 'test -L "$rootfs/usr/bin/go"', "Go command symlink validation");
 required(bundle, 'test -x "$rootfs/usr/lib/go/bin/go"', "Go executable validation");
 assert.doesNotMatch(bundle, /profile_packages=.*\b(docker|docker-proxy|dockerd)\b/, "full image must not include Docker");
-required(bundle, ': >"$rootfs/etc/wanix-container"', "container guest marker");
+required(bundle, ': >"$overlay/etc/wanix-container"', "container guest marker");
 
 const init = read("integrations/wanix/guest/init");
 required(init, 'if [ -f /etc/wanix-container ]; then', "container forwarding guard");

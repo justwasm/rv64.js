@@ -1,7 +1,38 @@
 #!/usr/bin/env bash
+#
+# build-linux-bundle.sh: assemble a wanix guest as TWO tarballs.
+#
+#   $out_rootfs  (required)  base rootfs (Alpine or Arch). Safe to
+#                             pair with an external wanix overlay.
+#   $out_overlay (optional)  wanix overlay tarball: busybox (Arch only),
+#                             kernel image, /bin/init, startnet/post-dhcp
+#                             /domctl/workerctl, wexec/hostexport,
+#                             /etc overlay, and profile binaries
+#                             (crush / peri / zero / pi / claude).
+#
+# Both are bound on top of each other by the host's vm.create path
+# (rootfs archive as dst=".", overlay archive as dst="." in union
+# order overlay > rootfs), so the overlay can ship its own /bin/init
+# even when the rootfs is Arch (which doesn't have it).
+#
+# Environment variables:
+#   WANIX_GUEST_ARCH      rv64 | x86 | i686 | arm64
+#   WANIX_KERNEL_PROFILE  minimal | container
+#   WANIX_ROOTFS          alpine (default) | arch
+#   WANIX_KERNEL          path to a prebuilt kernel image (optional;
+#                         otherwise nix builds .#<kernel_attr>)
+#   WANIX_ROOTFS_PROFILE  crush | python | nodejs | claude | peri |
+#                         zero | pi | golang | full | minimal (default)
+#   ALPINE_TAG            Alpine tag for the base image (default 3.24)
+#   WANIX_REF             wanix repo ref to checkout (default
+#                         6594fe3763eb8712e81914f78b79243bb403f5cc)
+#   INSTALL_PYTHON        "1" to additionally install python3 into
+#                         the rootfs (legacy opt-in)
+#   DOCKER_CMD            docker or podman (default docker)
+
 set -euo pipefail
 
-here="$(cd "$(dirname "$0")" && pwd)"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rv64_dir="${RV64_DIR:-$(cd "$here/../.." && pwd)}"
 guest_arch="${WANIX_GUEST_ARCH:-riscv64}"
 kernel_profile="${WANIX_KERNEL_PROFILE:-minimal}"
@@ -25,8 +56,6 @@ case "$guest_arch" in
         go_arch=riscv64
         kernel_attr=virt-kernel-fast
         kernel_name=Image
-        default_out="$here/dist/wanix-linux-rv64.tgz"
-        kernel="${WANIX_KERNEL:-${RV64_KERNEL:-}}"
         ;;
     x86)
         docker_platform=linux/386
@@ -37,13 +66,7 @@ case "$guest_arch" in
         go_arch=386
         kernel_attr=v86-kernel
         kernel_name=bzImage
-        default_out="$here/dist/wanix-linux-x86.tgz"
-        kernel="${WANIX_KERNEL:-${V86_KERNEL:-}}"
         ;;
-    # archlinux32 i686 path: same v86-kernel, but the alpine docker
-    # platform still needs to match the guest's libc/musl pair. Use
-    # linux/386 so the alpine skeleton we layer on top can install
-    # riscv64+x86-only packages if anything ever wants that.
     i686)
         docker_platform=linux/386
         apk_arch=x86
@@ -53,8 +76,6 @@ case "$guest_arch" in
         go_arch=386
         kernel_attr=v86-kernel
         kernel_name=bzImage
-        default_out="$here/dist/wanix-linux-i686.tgz"
-        kernel="${WANIX_KERNEL:-${V86_KERNEL:-}}"
         ;;
     arm64)
         docker_platform=linux/arm64
@@ -65,8 +86,6 @@ case "$guest_arch" in
         go_arch=arm64
         kernel_attr=arm64-kernel
         kernel_name=Image
-        default_out="$here/dist/wanix-linux-arm64.tgz"
-        kernel="${WANIX_KERNEL:-${ARM64_KERNEL:-}}"
         ;;
     *)
         echo "unsupported WANIX_GUEST_ARCH: $guest_arch (expected riscv64, x86, i686, or arm64)" >&2
@@ -78,7 +97,17 @@ if [ "$kernel_profile" = container ]; then
     kernel_attr+="-container"
 fi
 
-out="${1:-$default_out}"
+# Two output tarballs:
+#   $1 is the rootfs output path (required); $2 is the overlay output
+#   path (optional — defaults to ${1%.tgz}-overlay.tgz).
+out_rootfs="${1:?usage: build-linux-bundle.sh <rootfs.tgz> [overlay.tgz]}"
+case "$out_rootfs" in
+    *.tgz) out_overlay_default="${out_rootfs%.tgz}-overlay.tgz" ;;
+    *) out_overlay_default="${out_rootfs}-overlay.tgz" ;;
+esac
+out_overlay="${2:-$out_overlay_default}"
+mkdir -p "$(dirname "$out_rootfs")" "$(dirname "$out_overlay")"
+
 docker_cmd="${DOCKER_CMD:-docker}"
 profile="${WANIX_ROOTFS_PROFILE:-minimal}"
 install_python="${INSTALL_PYTHON:-0}"
@@ -124,50 +153,57 @@ tmp="$(mktemp -d "/tmp/wanix-$guest_arch-root.XXXXXX")"
 container="wanix-$guest_arch-root-$$"
 wanix_src="$tmp/wanix"
 rootfs="$tmp/rootfs"
+overlay="$tmp/overlay"
 wanix_ref="${WANIX_REF:-6594fe3763eb8712e81914f78b79243bb403f5cc}"
 trap '$docker_cmd rm -f "$container" >/dev/null 2>&1 || true; chmod -R u+rwX "$tmp" >/dev/null 2>&1 || true; rm -rf "$tmp" >/dev/null 2>&1 || true' EXIT
 
-if [ -z "$kernel" ]; then
+if [ -z "${kernel:-}" ]; then
     kernel="$(nix build --no-link --print-out-paths "path:$rv64_dir#$kernel_attr" \
         | xargs -I{} find {} -maxdepth 2 -name "$kernel_name" -print | head -1)"
 fi
 test -n "$kernel"
 
-"$docker_cmd" pull --platform="$docker_platform" "$alpine_image"
+"$docker_cmd" pull --platform="$docker_platform" "$alpine_image" >/dev/null
 "$docker_cmd" create --platform="$docker_platform" --name "$container" "$alpine_image" true >/dev/null
 mkdir -p "$rootfs"
 "$docker_cmd" export "$container" | tar -C "$rootfs" -xf -
 
 # Arch Linux swap-in: when WANIX_ROOTFS=arch, replace the alpine rootfs
-# with the matching upstream Arch bootstrap produced by the Nix recipe
-# `arch-recipe` (see flake.nix). The recipe ships per-arch subdirs under
-# $rootfs_nix/<arch>/; we copy the requested arch on top of the alpine
-# skeleton. WANIX_ROOTFS_KEEP_ALPINE=1 keeps the alpine export as a base
-# layer (handy for adding apk fallback tools before pacstrap runs).
-rootfs_nix="${WANIX_ROOTFS_NIX:-$(nix build --no-link --print-out-paths "path:$rv64_dir#arch-recipe" 2>/dev/null || true)}"
-if [ -n "${WANIX_ROOTFS:-}" ] && [ "$WANIX_ROOTFS" = arch ] && [ -n "$rootfs_nix" ]; then
-    arch_subdir="$rootfs_nix/$guest_arch"
-    if [ ! -d "$arch_subdir" ]; then
-        echo "arch bootstrap for guest arch '$guest_arch' missing under $rootfs_nix" >&2
-        exit 2
+# with the matching upstream Arch base tarball. The Arch tarball path is
+# passed via WANIX_ROOTFS_TARBALL; defaults to fetching the latest
+# release's archlinux-base-<arch>.tar.gz from btwiuse/archlinux.
+arch_subdir=""
+if [ "${WANIX_ROOTFS:-}" = arch ]; then
+    if [ -n "${WANIX_ROOTFS_TARBALL:-}" ]; then
+        arch_tarball="$WANIX_ROOTFS_TARBALL"
+    else
+        arch_arch="$guest_arch"
+        case "$arch_arch" in
+            riscv64) arch_arch=riscv64 ;;
+            arm64) arch_arch=aarch64 ;;
+            x86|i686) arch_arch=i686 ;;
+        esac
+        arch_tarball="$(dirname "$here")/../../wanix-dist/archlinux-base-${arch_arch}.tar.gz"
+        if [ ! -f "$arch_tarball" ]; then
+            arch_tarball_url="https://github.com/btwiuse/archlinux/releases/latest/download/archlinux-base-${arch_arch}.tar.gz"
+            mkdir -p "$(dirname "$arch_tarball")"
+            curl -fsSL --retry 3 "$arch_tarball_url" -o "$arch_tarball"
+        fi
     fi
-    # Preserve the alpine skeleton (usr/local/bin, etc.) so later apk
-    # fallbacks still work; overwrite the system tree with the Arch
-    # bootstrap contents. Bind-mounted paths keep working because the
-    # overlay is created lazily.
-    cp -a "$arch_subdir"/. "$rootfs"/
+    # Replace the alpine skeleton with the Arch base tarball.
+    rm -rf "$rootfs"
+    mkdir -p "$rootfs"
+    tar -xzf "$arch_tarball" -C "$rootfs"
     # Drop in our pacman configs and mirrorlist so the guest's pacman is
     # wired to the curated mirrors at first-boot. Wipe any preexisting
-    # mirrorlist that came with the upstream bootstrap.
+    # mirrorlist that came with the upstream tarball.
     rm -f "$rootfs/etc/pacman.d/mirrorlist"
     cp "$here/arch-configs/pacman.conf" "$rootfs/etc/pacman.conf"
-    if [ "$guest_arch" = riscv64 ]; then
-        cp "$here/arch-configs/mirrorlist.riscv64" "$rootfs/etc/pacman.d/mirrorlist"
-    elif [ "$guest_arch" = i686 ] || [ "$guest_arch" = x86 ]; then
-        cp "$here/arch-configs/mirrorlist.i686" "$rootfs/etc/pacman.d/mirrorlist"
-    else
-        cp "$here/arch-configs/mirrorlist" "$rootfs/etc/pacman.d/mirrorlist"
-    fi
+    case "$guest_arch" in
+        riscv64) cp "$here/arch-configs/mirrorlist.riscv64" "$rootfs/etc/pacman.d/mirrorlist" ;;
+        i686|x86) cp "$here/arch-configs/mirrorlist.i686" "$rootfs/etc/pacman.d/mirrorlist" ;;
+        *) cp "$here/arch-configs/mirrorlist" "$rootfs/etc/pacman.d/mirrorlist" ;;
+    esac
 fi
 
 if [ "$profile" = crush ]; then
@@ -185,11 +221,11 @@ if [ "$profile" = crush ]; then
     esac
     crush_archive="$tmp/crush.tar.gz"
     crush_stage="$tmp/crush"
-    mkdir -p "$crush_stage" "$rootfs/usr/local/bin"
+    mkdir -p "$crush_stage" "$overlay/usr/local/bin"
     curl -fsSL "https://github.com/justwasm/crush/releases/download/$crush_version/crush_${crush_version}_Linux_${crush_arch}.tar.gz" -o "$crush_archive"
     printf '%s  %s\n' "$crush_sha256" "$crush_archive" | sha256sum -c -
     tar -xzf "$crush_archive" --strip-components=1 -C "$crush_stage"
-    install -m 0755 "$crush_stage/crush" "$rootfs/usr/local/bin/crush"
+    install -m 0755 "$crush_stage/crush" "$overlay/usr/local/bin/crush"
 fi
 
 if [ "$profile" = peri ]; then
@@ -206,11 +242,11 @@ if [ "$profile" = peri ]; then
             ;;
     esac
     peri_archive="$tmp/peri-linux-$peri_arch.tar.gz"
-    mkdir -p "$rootfs/usr/local/bin"
+    mkdir -p "$overlay/usr/local/bin"
     curl -fsSL "https://github.com/justwasm/peri/releases/download/$peri_version/peri-linux-$peri_arch.tar.gz" -o "$peri_archive"
     printf '%s  %s\n' "$peri_sha256" "$peri_archive" | sha256sum -c -
-    tar -xzf "$peri_archive" -O "peri-linux-$peri_arch" >"$rootfs/usr/local/bin/peri"
-    chmod 0755 "$rootfs/usr/local/bin/peri"
+    tar -xzf "$peri_archive" -O "peri-linux-$peri_arch" >"$overlay/usr/local/bin/peri"
+    chmod 0755 "$overlay/usr/local/bin/peri"
 fi
 
 if [ "$profile" = zero ]; then
@@ -227,13 +263,13 @@ if [ "$profile" = zero ]; then
             ;;
     esac
     zero_archive="$tmp/zero-linux-$zero_arch.tar.gz"
-    mkdir -p "$rootfs/usr/local/bin" "$rootfs/usr/local/lib/zero/bin" "$rootfs/usr/local/share/zero"
+    mkdir -p "$overlay/usr/local/bin" "$overlay/usr/local/lib/zero/bin" "$overlay/usr/local/share/zero"
     curl -fsSL "https://github.com/justwasm/zero/releases/download/$zero_version/zero-$zero_version-linux-$zero_arch.tar.gz" -o "$zero_archive"
     printf '%s  %s\n' "$zero_sha256" "$zero_archive" | sha256sum -c -
-    tar -xzf "$zero_archive" -C "$rootfs/usr/local/bin/" zero zero-seccomp zero-linux-sandbox
-    tar -xzf "$zero_archive" -C "$rootfs/usr/local/lib/zero/bin/" --strip-components=1 bin/zero.js
-    tar -xzf "$zero_archive" -C "$rootfs/usr/local/share/zero/" package.json README.md VERSION
-    chmod 0755 "$rootfs/usr/local/bin/zero" "$rootfs/usr/local/bin/zero-seccomp" "$rootfs/usr/local/bin/zero-linux-sandbox"
+    tar -xzf "$zero_archive" -C "$overlay/usr/local/bin/" zero zero-seccomp zero-linux-sandbox
+    tar -xzf "$zero_archive" -C "$overlay/usr/local/lib/zero/bin/" --strip-components=1 bin/zero.js
+    tar -xzf "$zero_archive" -C "$overlay/usr/local/share/zero/" package.json README.md VERSION
+    chmod 0755 "$overlay/usr/local/bin/zero" "$overlay/usr/local/bin/zero-seccomp" "$overlay/usr/local/bin/zero-linux-sandbox"
 fi
 
 # Keep the default guest rootfs minimal, matching the existing x86 and RV64
@@ -259,7 +295,7 @@ if [ "$profile" = pi ]; then
 fi
 case "$profile" in
     crush)
-        test -x "$rootfs/usr/local/bin/crush"
+        test -x "$overlay/usr/local/bin/crush"
         ;;
     python)
         test -x "$rootfs/usr/bin/python3"
@@ -276,13 +312,13 @@ case "$profile" in
         test -L "$rootfs/usr/local/bin/claude-code-best"
         ;;
     peri)
-        test -x "$rootfs/usr/local/bin/peri"
+        test -x "$overlay/usr/local/bin/peri"
         ;;
     zero)
-        test -x "$rootfs/usr/local/bin/zero"
-        test -x "$rootfs/usr/local/bin/zero-seccomp"
-        test -x "$rootfs/usr/local/bin/zero-linux-sandbox"
-        test -f "$rootfs/usr/local/lib/zero/bin/zero.js"
+        test -x "$overlay/usr/local/bin/zero"
+        test -x "$overlay/usr/local/bin/zero-seccomp"
+        test -x "$overlay/usr/local/bin/zero-linux-sandbox"
+        test -f "$overlay/usr/local/lib/zero/bin/zero.js"
         ;;
     pi)
         test -x "$rootfs/usr/bin/node"
@@ -304,6 +340,23 @@ case "$profile" in
 esac
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
     find -H /target \( -type f -o -type d \) -exec chown "$(id -u):$(id -g)" {} + || true
+
+# Wanix overlay: kernel + busybox + init + wexec + hostexport + /etc overlay.
+# Busybox is only added on Arch rootfs (Alpine already ships its own in
+# /bin/busybox, and it's the same musl build).
+mkdir -p "$overlay/boot" "$overlay/bin" "$overlay/etc"
+if [ "$kernel_profile" = container ]; then
+    : >"$overlay/etc/wanix-container"
+fi
+if [ "${WANIX_ROOTFS:-}" = arch ]; then
+    busybox_bin="$here/bin/busybox-$guest_arch"
+    if [ ! -f "$busybox_bin" ]; then
+        echo "missing busybox for $guest_arch at $busybox_bin; run tools/fetch-busybox.sh" >&2
+        exit 1
+    fi
+    install -m 0755 "$busybox_bin" "$overlay/bin/busybox"
+    ln -sf /bin/busybox "$overlay/bin/sh"
+fi
 git clone --quiet https://github.com/tractordev/wanix.git "$wanix_src"
 git -C "$wanix_src" checkout --quiet "$wanix_ref"
 if [ "$guest_arch" = riscv64 ]; then
@@ -313,31 +366,37 @@ git -C "$wanix_src" apply "$here/wanix-wexec-js.patch"
 git -C "$wanix_src" apply "$here/wanix-wexec-poll.patch"
 git -C "$wanix_src" apply "$here/wanix-wexec-signal.patch"
 git -C "$wanix_src" apply "$here/wanix-wexec-live-read.patch"
-
-mkdir -p "$rootfs/boot" "$rootfs/bin" "$rootfs/etc" "$(dirname "$out")"
-if [ "$kernel_profile" = container ]; then
-    : >"$rootfs/etc/wanix-container"
-fi
-cp "$kernel" "$rootfs/boot/$kernel_name"
-cp "$here/guest/init" "$rootfs/bin/init"
+cp "$kernel" "$overlay/boot/$kernel_name"
+cp "$here/guest/init" "$overlay/bin/init"
 cp "$wanix_src/extras/linux/bin/domctl" "$wanix_src/extras/linux/bin/post-dhcp" \
-    "$wanix_src/extras/linux/bin/startnet" "$wanix_src/extras/linux/bin/workerctl" "$rootfs/bin/"
-cp "$wanix_src/extras/linux/etc/"* "$rootfs/etc/"
-GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -o "$rootfs/bin/wexec" ./extras/wexec
-GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -o "$rootfs/bin/hostexport" ./extras/hostexport
-find "$rootfs" -name '._*' -type f -delete
-ROOTFS="$rootfs" OUTPUT="$out" python3 - <<'PY'
-import os
-import tarfile
+    "$wanix_src/extras/linux/bin/startnet" "$wanix_src/extras/linux/bin/workerctl" "$overlay/bin/"
+cp "$wanix_src/extras/linux/etc/"* "$overlay/etc/"
+GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -o "$overlay/bin/wexec" ./extras/wexec
+GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -o "$overlay/bin/hostexport" ./extras/hostexport
 
-root = os.environ["ROOTFS"]
+find "$rootfs" -name '._*' -type f -delete
+find "$overlay" -name '._*' -type f -delete
+
+# Emit both tarballs. Both directories are walked in sorted order so
+# the produced archive is deterministic for a given input set.
+emit_tarball() {
+    local src="$1" out="$2"
+    ROOT="$src" OUTPUT="$out" python3 - <<'PY'
+import os, tarfile
+src = os.environ["ROOT"]
 output = os.environ["OUTPUT"]
 with tarfile.open(output, "w:gz") as archive:
-    for current, directories, files in os.walk(root):
+    for current, directories, files in os.walk(src):
         directories.sort()
         files.sort()
         for name in directories + files:
             path = os.path.join(current, name)
-            archive.add(path, os.path.relpath(path, root), recursive=False)
+            archive.add(path, os.path.relpath(path, src), recursive=False)
 PY
-echo "$guest_arch Linux namespace: $out"
+}
+
+emit_tarball "$rootfs" "$out_rootfs"
+emit_tarball "$overlay" "$out_overlay"
+
+echo "$guest_arch Linux namespace: $out_rootfs"
+echo "$guest_arch Linux overlay: $out_overlay"

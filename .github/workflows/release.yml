@@ -352,6 +352,13 @@ jobs:
         with:
           platforms: all
 
+      - name: Fetch static busybox binaries
+        # busybox-static from Debian is a true static ELF (glibc), so
+        # the same binary works against any rootfs; we ship one per
+        # arch into the wanix-overlay so Arch guests don't need to
+        # install busybox from pacman.
+        run: tools/fetch-busybox.sh
+
       - name: Build and validate guest archive
         run: |
           chmod +x tools/build-wanix-release-assets.sh
@@ -363,7 +370,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: wanix-${{ matrix.arch }}-${{ matrix.profile }}
-          path: target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz
+          path: |
+            target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz
+            target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-overlay-*.tgz
           if-no-files-found: error
           retention-days: 7
 
@@ -375,4 +384,5 @@ jobs:
           release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
           gh release upload "$release_tag" \
             target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz \
+            target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-overlay-*.tgz \
             --repo "$GITHUB_REPOSITORY" --clobber

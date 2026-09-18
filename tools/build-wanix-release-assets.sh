@@ -72,14 +72,16 @@ WANIX_ROOTFS_PROFILE="$rootfs_profile" \
 WANIX_ROOTFS="${WANIX_ROOTFS:-alpine}" \
 ALPINE_TAG=3.24 \
   integrations/wanix/build-linux-bundle.sh \
-  "$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
+  "$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz" \
+  "$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
 
 file "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
 archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
-tar -tf "$archive" --wildcards "boot/$kernel_name" >/dev/null
+overlay_archive="$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
+tar -tf "$overlay_archive" --wildcards "boot/$kernel_name" >/dev/null
 case "$rootfs_profile" in
     crush)
-        tar -tf "$archive" --wildcards "usr/local/bin/crush" >/dev/null
+        tar -tf "$overlay_archive" --wildcards "usr/local/bin/crush" >/dev/null
         ;;
     python)
         tar -tf "$archive" --wildcards "usr/bin/python3" >/dev/null
@@ -93,21 +95,21 @@ case "$rootfs_profile" in
         tar -tf "$archive" --wildcards "usr/bin/node" >/dev/null
         tar -tf "$archive" --wildcards "usr/bin/npm" >/dev/null
         tar -tf "$archive" --wildcards "usr/bin/rg" >/dev/null
-        tar -tf "$archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null
+        tar -tf "$overlay_archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null
         ;;
     peri)
-        tar -tf "$archive" --wildcards "usr/local/bin/peri" >/dev/null
+        tar -tf "$overlay_archive" --wildcards "usr/local/bin/peri" >/dev/null
         ;;
     zero)
-        tar -tf "$archive" --wildcards "usr/local/bin/zero" >/dev/null
-        tar -tf "$archive" --wildcards "usr/local/bin/zero-seccomp" >/dev/null
-        tar -tf "$archive" --wildcards "usr/local/bin/zero-linux-sandbox" >/dev/null
-        tar -tf "$archive" --wildcards "usr/local/lib/zero/bin/zero.js" >/dev/null
+        tar -tf "$overlay_archive" --wildcards "usr/local/bin/zero" >/dev/null
+        tar -tf "$overlay_archive" --wildcards "usr/local/bin/zero-seccomp" >/dev/null
+        tar -tf "$overlay_archive" --wildcards "usr/local/bin/zero-linux-sandbox" >/dev/null
+        tar -tf "$overlay_archive" --wildcards "usr/local/lib/zero/bin/zero.js" >/dev/null
         ;;
     pi)
         tar -tf "$archive" --wildcards "usr/bin/node" >/dev/null
         tar -tf "$archive" --wildcards "usr/bin/npm" >/dev/null
-        tar -tf "$archive" --wildcards "usr/local/bin/pi" >/dev/null
+        tar -tf "$overlay_archive" --wildcards "usr/local/bin/pi" >/dev/null
         ;;
     golang)
         tar -tf "$archive" --wildcards "usr/bin/go" >/dev/null
