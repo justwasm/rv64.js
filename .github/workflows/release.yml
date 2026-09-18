@@ -155,13 +155,20 @@ jobs:
           output="$(nix build --no-link --print-out-paths ".#${KERNEL_ATTR}")"
           test -s "$output/$KERNEL_IMAGE"
           mkdir -p target/kernels
-          install -m 0644 "$output/$KERNEL_IMAGE" "target/kernels/$KERNEL_NAME"
-          file "target/kernels/$KERNEL_NAME"
+          # gzip -9 compresses the kernel Image/bzImage by ~6-7x. The
+          # release CDN keeps the .gz suffix and serves it with
+          # Content-Encoding: gzip when the client sends the standard
+          # Accept-Encoding header, so browser fetch() (used by rv64
+          # and v86 emulator adapters) gets the raw bytes transparently.
+          gzip -9 -c < "$output/$KERNEL_IMAGE" \
+            > "target/kernels/${KERNEL_NAME}.gz"
+          file "target/kernels/${KERNEL_NAME}.gz"
+          gzip -t "target/kernels/${KERNEL_NAME}.gz"
 
       - uses: actions/upload-artifact@v4
         with:
           name: kernel-${{ matrix.arch }}-${{ matrix.profile }}
-          path: target/kernels/rv64-kernel-${{ matrix.arch }}-${{ matrix.profile }}
+          path: target/kernels/rv64-kernel-${{ matrix.arch }}-${{ matrix.profile }}.gz
           if-no-files-found: error
           retention-days: 7
 
@@ -186,15 +193,16 @@ jobs:
           set -euo pipefail
           cd target/kernels
           expected=(
-            rv64-kernel-riscv64-minimal
-            rv64-kernel-riscv64-container
-            rv64-kernel-x86-minimal
-            rv64-kernel-x86-container
-            rv64-kernel-arm64-minimal
-            rv64-kernel-arm64-container
+            rv64-kernel-riscv64-minimal.gz
+            rv64-kernel-riscv64-container.gz
+            rv64-kernel-x86-minimal.gz
+            rv64-kernel-x86-container.gz
+            rv64-kernel-arm64-minimal.gz
+            rv64-kernel-arm64-container.gz
           )
           for kernel in "${expected[@]}"; do
             test -s "$kernel"
+            gzip -t "$kernel"
           done
           test "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq "${#expected[@]}"
           sha256sum "${expected[@]}" > KERNELS-SHA256SUMS
