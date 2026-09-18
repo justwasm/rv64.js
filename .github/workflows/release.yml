@@ -330,14 +330,11 @@ jobs:
             "target/release/rv64.js-${release_tag#v}.tar.gz" \
             --repo "$GITHUB_REPOSITORY" --clobber
 
-  build-wanix-guests:
-    name: Build ${{ matrix.arch }}-${{ matrix.profile }} guest
+  build-wanix-rootfs:
+    name: Build ${{ matrix.arch }}-${{ matrix.profile }} rootfs
     needs: prepare-release
     runs-on: ubuntu-latest
-    timeout-minutes: 360
-    # The workflow-level permissions default to contents: read, but the
-    # embedded "Publish guest archive immediately" step uploads the freshly
-    # built archive via gh release upload, which requires write scope.
+    timeout-minutes: 240
     permissions:
       contents: write
     strategy:
@@ -345,51 +342,69 @@ jobs:
       matrix:
         arch: [riscv64, x86, arm64]
         profile: [minimal, crush, python, nodejs, claude, peri, zero, pi, golang, container, container-full]
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: cachix/install-nix-action@v31
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: stable
-
       - uses: docker/setup-qemu-action@v3
         with:
           platforms: all
-
-      - name: Fetch static busybox binaries
-        # busybox-static from Debian is a true static ELF (glibc), so
-        # the same binary works against any rootfs; we ship one per
-        # arch into the wanix-overlay so Arch guests don't need to
-        # install busybox from pacman.
-        run: tools/fetch-busybox.sh
-
-      - name: Build and validate guest archive
+      - name: Build rootfs only
+        env:
+          WANIX_BUILD_PART: rootfs
         run: |
           chmod +x tools/build-wanix-release-assets.sh
-          tools/build-wanix-release-assets.sh \
-            "${{ matrix.arch }}" \
-            "${{ matrix.profile }}" \
-            "target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}"
-
+          tools/build-wanix-release-assets.sh "${{ matrix.arch }}" "${{ matrix.profile }}" "target/wanix-rootfs/${{ matrix.arch }}-${{ matrix.profile }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: wanix-${{ matrix.arch }}-${{ matrix.profile }}
-          path: |
-            target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz
-            target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-overlay-*.tgz
+          name: wanix-rootfs-${{ matrix.arch }}-${{ matrix.profile }}
+          path: target/wanix-rootfs/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz
           if-no-files-found: error
           retention-days: 7
-
-      - name: Publish guest archive immediately
+      - name: Publish guest archive immediately (rootfs)
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
-          gh release upload "$release_tag" \
-            target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz \
-            target/wanix-guests/${{ matrix.arch }}-${{ matrix.profile }}/wanix-overlay-*.tgz \
-            --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$release_tag" target/wanix-rootfs/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz --repo "$GITHUB_REPOSITORY" --clobber
+
+  build-wanix-overlays:
+    name: Build ${{ matrix.arch }}-${{ matrix.profile }} overlay
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [riscv64, x86, arm64]
+        profile: [minimal, crush, python, nodejs, claude, peri, zero, pi, golang, container, container-full]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+      - name: Fetch static busybox binaries
+        run: tools/fetch-busybox.sh
+      - name: Build overlay only
+        env:
+          WANIX_BUILD_PART: overlay
+        run: |
+          chmod +x tools/build-wanix-release-assets.sh
+          tools/build-wanix-release-assets.sh "${{ matrix.arch }}" "${{ matrix.profile }}" "target/wanix-overlays/${{ matrix.arch }}-${{ matrix.profile }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wanix-overlay-${{ matrix.arch }}-${{ matrix.profile }}
+          path: target/wanix-overlays/${{ matrix.arch }}-${{ matrix.profile }}/wanix-overlay-*.tgz
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publish guest archive immediately (overlay)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_tag="${{ github.event.inputs.release_tag || github.ref_name }}"
+          gh release upload "$release_tag" target/wanix-overlays/${{ matrix.arch }}-${{ matrix.profile }}/wanix-overlay-*.tgz --repo "$GITHUB_REPOSITORY" --clobber

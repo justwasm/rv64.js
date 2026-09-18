@@ -2,8 +2,9 @@
 set -euo pipefail
 
 arch="${1:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <minimal|container|container-full> <output-dir>}"
-profile="${2:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <minimal|container|container-full> <output-dir>}"
-output_dir="${3:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|arm64> <minimal|container|container-full> <output-dir>}"
+profile="${2:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|container|container-full> <output-dir>}"
+output_dir="${3:?usage: build-wanix-release-assets.sh <riscv64|x86|i686|container|container-full> <output-dir>}"
+build_part="${WANIX_BUILD_PART:-both}"
 
 case "$arch" in
     riscv64)
@@ -57,15 +58,18 @@ case "$profile" in
 esac
 
 mkdir -p "$output_dir/kernels"
-config_path="$(nix build --no-link --print-out-paths ".#$kernel_attr.configfile")"
-grep -qx 'CONFIG_IKCONFIG=y' "$config_path"
-grep -qx 'CONFIG_IKCONFIG_PROC=y' "$config_path"
-kernel_output="$(nix build --no-link --print-out-paths ".#$kernel_attr")"
-kernel_path="$kernel_output/$kernel_name"
-test -s "$kernel_path"
-install -m 0644 "$kernel_path" "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
+if [ "$build_part" != rootfs ]; then
+    config_path="$(nix build --no-link --print-out-paths ".#$kernel_attr.configfile")"
+    grep -qx 'CONFIG_IKCONFIG=y' "$config_path"
+    grep -qx 'CONFIG_IKCONFIG_PROC=y' "$config_path"
+    kernel_output="$(nix build --no-link --print-out-paths ".#$kernel_attr")"
+    kernel_path="$kernel_output/$kernel_name"
+    test -s "$kernel_path"
+    install -m 0644 "$kernel_path" "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
+fi
 
-WANIX_KERNEL="$kernel_path" \
+WANIX_KERNEL="${kernel_path:-}" \
+WANIX_BUILD_PART="$build_part" \
 WANIX_GUEST_ARCH="$arch" \
 WANIX_KERNEL_PROFILE="$kernel_profile" \
 WANIX_ROOTFS_PROFILE="$rootfs_profile" \
@@ -75,7 +79,24 @@ ALPINE_TAG=3.24 \
   "$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz" \
   "$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
 
+if [ "$build_part" = rootfs ]; then
+    archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
+    if tar -tf "$archive" --wildcards 'boot/Image' >/dev/null 2>&1 \
+       || tar -tf "$archive" --wildcards 'boot/bzImage' >/dev/null 2>&1 \
+       || tar -tf "$archive" --wildcards 'boot/vmlinuz*' >/dev/null 2>&1; then
+        echo "error: $archive embeds a kernel image" >&2
+        exit 1
+    fi
+    file "$archive"
+    exit 0
+fi
+
 file "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
+if [ "$build_part" = overlay ]; then
+    test -s "$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
+    file "$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
+    exit 0
+fi
 archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
 overlay_archive="$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
 # The kernel is published as a separate rv64-kernel-<arch>-<profile>

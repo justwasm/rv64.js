@@ -4,8 +4,8 @@
 #
 #   $out_rootfs  (required)  base rootfs (Alpine or Arch). Safe to
 #                             pair with an external wanix overlay.
-#   $out_overlay (optional)  wanix overlay tarball: busybox (Arch only),
-#                             kernel image, /bin/init, startnet/post-dhcp
+#   $out_overlay  (optional)  wanix overlay tarball: busybox (Arch only),
+#                             /bin/init, startnet/post-dhcp,
 #                             /domctl/workerctl, wexec/hostexport,
 #                             /etc overlay, and profile binaries
 #                             (crush / peri / zero / pi / claude).
@@ -31,6 +31,12 @@
 #   DOCKER_CMD            docker or podman (default docker)
 
 set -euo pipefail
+
+build_part="${WANIX_BUILD_PART:-both}"
+case "$build_part" in
+    rootfs|overlay|both) ;;
+    *) echo "unsupported WANIX_BUILD_PART: $build_part" >&2; exit 2 ;;
+esac
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rv64_dir="${RV64_DIR:-$(cd "$here/../.." && pwd)}"
@@ -157,12 +163,7 @@ overlay="$tmp/overlay"
 wanix_ref="${WANIX_REF:-6594fe3763eb8712e81914f78b79243bb403f5cc}"
 trap '$docker_cmd rm -f "$container" >/dev/null 2>&1 || true; chmod -R u+rwX "$tmp" >/dev/null 2>&1 || true; rm -rf "$tmp" >/dev/null 2>&1 || true' EXIT
 
-if [ -z "${kernel:-}" ]; then
-    kernel="$(nix build --no-link --print-out-paths "path:$rv64_dir#$kernel_attr" \
-        | xargs -I{} find {} -maxdepth 2 -name "$kernel_name" -print | head -1)"
-fi
-test -n "$kernel"
-
+if [ "$build_part" != overlay ]; then
 "$docker_cmd" pull --platform="$docker_platform" "$alpine_image" >/dev/null
 "$docker_cmd" create --platform="$docker_platform" --name "$container" "$alpine_image" true >/dev/null
 mkdir -p "$rootfs"
@@ -206,7 +207,7 @@ if [ "${WANIX_ROOTFS:-}" = arch ]; then
     esac
 fi
 
-if [ "$profile" = crush ]; then
+if [ "$build_part" != rootfs ] && [ "$profile" = crush ]; then
     crush_version=v0.94.0
     case "$crush_arch" in
         riscv64)
@@ -228,7 +229,7 @@ if [ "$profile" = crush ]; then
     install -m 0755 "$crush_stage/crush" "$overlay/usr/local/bin/crush"
 fi
 
-if [ "$profile" = peri ]; then
+if [ "$build_part" != rootfs ] && [ "$profile" = peri ]; then
     peri_version=agent-v3.16.5
     case "$peri_arch" in
         riscv64)
@@ -249,7 +250,7 @@ if [ "$profile" = peri ]; then
     chmod 0755 "$overlay/usr/local/bin/peri"
 fi
 
-if [ "$profile" = zero ]; then
+if [ "$build_part" != rootfs ] && [ "$profile" = zero ]; then
     zero_version=v0.9.0
     case "$zero_arch" in
         riscv64)
@@ -272,6 +273,7 @@ if [ "$profile" = zero ]; then
     chmod 0755 "$overlay/usr/local/bin/zero" "$overlay/usr/local/bin/zero-seccomp" "$overlay/usr/local/bin/zero-linux-sandbox"
 fi
 
+if [ "$build_part" != overlay ]; then
 # Keep the default guest rootfs minimal, matching the existing x86 and RV64
 # archives. Python is an opt-in workload dependency for benchmark images.
 if [ "$install_python" = 1 ] || [ "${#profile_packages[@]}" -gt 0 ]; then
@@ -293,10 +295,8 @@ if [ "$profile" = pi ]; then
     "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
         sh -ec 'apk add --no-cache nodejs-current npm; npm --prefix /target/usr/local install --global --ignore-scripts @earendil-works/pi-coding-agent'
 fi
+
 case "$profile" in
-    crush)
-        test -x "$overlay/usr/local/bin/crush"
-        ;;
     python)
         test -x "$rootfs/usr/bin/python3"
         test -x "$rootfs/usr/bin/uv"
@@ -310,15 +310,6 @@ case "$profile" in
         test -x "$rootfs/usr/bin/npm"
         test -x "$rootfs/usr/bin/rg"
         test -L "$rootfs/usr/local/bin/claude-code-best"
-        ;;
-    peri)
-        test -x "$overlay/usr/local/bin/peri"
-        ;;
-    zero)
-        test -x "$overlay/usr/local/bin/zero"
-        test -x "$overlay/usr/local/bin/zero-seccomp"
-        test -x "$overlay/usr/local/bin/zero-linux-sandbox"
-        test -f "$overlay/usr/local/lib/zero/bin/zero.js"
         ;;
     pi)
         test -x "$rootfs/usr/bin/node"
@@ -340,13 +331,29 @@ case "$profile" in
 esac
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
     find -H /target \( -type f -o -type d \) -exec chown "$(id -u):$(id -g)" {} + || true
+fi
+if [ "$build_part" != rootfs ]; then
+case "$profile" in
+    crush)
+        test -x "$overlay/usr/local/bin/crush"
+        ;;
+    peri)
+        test -x "$overlay/usr/local/bin/peri"
+        ;;
+    zero)
+        test -x "$overlay/usr/local/bin/zero"
+        test -x "$overlay/usr/local/bin/zero-seccomp"
+        test -x "$overlay/usr/local/bin/zero-linux-sandbox"
+        test -f "$overlay/usr/local/lib/zero/bin/zero.js"
+        ;;
+esac
+fi
+fi
 
+if [ "$build_part" != rootfs ]; then
 # Wanix overlay: busybox (Arch only) + /bin/init + wexec + hostexport +
-# /etc overlay + profile binaries. The kernel is intentionally NOT
-# bundled here; it ships as a separate `rv64-kernel-<arch>-<profile>`
-# asset so users can mix and match kernel profiles (minimal vs
-# container) with overlay profiles (minimal vs crush vs claude ...)
-# independently.
+# /etc overlay + profile binaries. Kernel images stay in their own
+# release assets and are mounted separately by the host.
 mkdir -p "$overlay/bin" "$overlay/etc"
 if [ "$kernel_profile" = container ]; then
     : >"$overlay/etc/wanix-container"
@@ -373,13 +380,14 @@ cp "$here/guest/init" "$overlay/bin/init"
 cp "$wanix_src/extras/linux/bin/domctl" "$wanix_src/extras/linux/bin/post-dhcp" \
     "$wanix_src/extras/linux/bin/startnet" "$wanix_src/extras/linux/bin/workerctl" "$overlay/bin/"
 cp "$wanix_src/extras/linux/etc/"* "$overlay/etc/"
-GOWORK=off GOOS=linux GOARCH="$go_arch" go build -trimpath -ldflags="-s -w" -C "$wanix_src" -o "$overlay/bin/wexec" ./extras/wexec
-GOWORK=off GOOS=linux GOARCH="$go_arch" go build -trimpath -ldflags="-s -w" -C "$wanix_src" -o "$overlay/bin/hostexport" ./extras/hostexport
+GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -trimpath -ldflags="-s -w" -o "$overlay/bin/wexec" ./extras/wexec
+GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -trimpath -ldflags="-s -w" -o "$overlay/bin/hostexport" ./extras/hostexport
 
 find "$rootfs" -name '._*' -type f -delete
 find "$overlay" -name '._*' -type f -delete
+fi
 
-# Emit both tarballs. Both directories are walked in sorted order so
+# Emit requested tarballs. Both directories are walked in sorted order so
 # the produced archive is deterministic for a given input set.
 emit_tarball() {
     local src="$1" out="$2"
@@ -397,8 +405,11 @@ with tarfile.open(output, "w:gz") as archive:
 PY
 }
 
-emit_tarball "$rootfs" "$out_rootfs"
-emit_tarball "$overlay" "$out_overlay"
-
-echo "$guest_arch Linux namespace: $out_rootfs"
-echo "$guest_arch Linux overlay: $out_overlay"
+if [ "$build_part" != overlay ]; then
+    emit_tarball "$rootfs" "$out_rootfs"
+    echo "$guest_arch Linux rootfs: $out_rootfs"
+fi
+if [ "$build_part" != rootfs ]; then
+    emit_tarball "$overlay" "$out_overlay"
+    echo "$guest_arch Linux overlay: $out_overlay"
+fi
