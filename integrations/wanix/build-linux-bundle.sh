@@ -383,7 +383,9 @@ cp "$wanix_src/extras/linux/etc/"* "$overlay/etc/"
 GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -trimpath -ldflags="-s -w" -o "$overlay/bin/wexec" ./extras/wexec
 GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -trimpath -ldflags="-s -w" -o "$overlay/bin/hostexport" ./extras/hostexport
 
-find "$rootfs" -name '._*' -type f -delete
+if [ "$build_part" != overlay ]; then
+    find "$rootfs" -name '._*' -type f -delete
+fi
 find "$overlay" -name '._*' -type f -delete
 fi
 

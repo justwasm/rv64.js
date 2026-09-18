@@ -390,11 +390,9 @@ jobs:
       - name: Fetch static busybox binaries
         run: tools/fetch-busybox.sh
       - name: Build overlay only
-        env:
-          WANIX_BUILD_PART: overlay
         run: |
-          chmod +x tools/build-wanix-release-assets.sh
-          tools/build-wanix-release-assets.sh "${{ matrix.arch }}" minimal "target/wanix-overlays/${{ matrix.arch }}"
+          chmod +x integrations/wanix/build-wanix-overlay.sh
+          integrations/wanix/build-wanix-overlay.sh "${{ matrix.arch }}" "target/wanix-overlays/${{ matrix.arch }}/wanix-overlay-${{ matrix.arch }}.tgz"
       - uses: actions/upload-artifact@v4
         with:
           name: wanix-overlay-${{ matrix.arch }}

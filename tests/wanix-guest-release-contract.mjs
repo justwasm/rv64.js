@@ -87,6 +87,9 @@ required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/pi" >/dev
 assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must not use a SIGPIPE-prone pipeline");
 
 const bundle = read("integrations/wanix/build-linux-bundle.sh");
+const overlay = read("integrations/wanix/build-wanix-overlay.sh");
+required(overlay, 'go build -C "$wanix_src"', "overlay Go build");
+required(overlay, 'wanix-overlay-$arch.XXXXXX', "overlay-only temporary workspace");
 
 required(bundle, 'WANIX_ROOTFS=arch', "Arch rootfs opt-in");
 required(bundle, 'WANIX_ROOTFS_TARBALL', "Arch rootfs tarball path");
