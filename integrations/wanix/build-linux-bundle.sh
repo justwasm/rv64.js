@@ -373,8 +373,8 @@ cp "$here/guest/init" "$overlay/bin/init"
 cp "$wanix_src/extras/linux/bin/domctl" "$wanix_src/extras/linux/bin/post-dhcp" \
     "$wanix_src/extras/linux/bin/startnet" "$wanix_src/extras/linux/bin/workerctl" "$overlay/bin/"
 cp "$wanix_src/extras/linux/etc/"* "$overlay/etc/"
-GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -o "$overlay/bin/wexec" ./extras/wexec
-GOWORK=off GOOS=linux GOARCH="$go_arch" go build -C "$wanix_src" -o "$overlay/bin/hostexport" ./extras/hostexport
+GOWORK=off GOOS=linux GOARCH="$go_arch" go build -trimpath -ldflags="-s -w" -C "$wanix_src" -o "$overlay/bin/wexec" ./extras/wexec
+GOWORK=off GOOS=linux GOARCH="$go_arch" go build -trimpath -ldflags="-s -w" -C "$wanix_src" -o "$overlay/bin/hostexport" ./extras/hostexport
 
 find "$rootfs" -name '._*' -type f -delete
 find "$overlay" -name '._*' -type f -delete
