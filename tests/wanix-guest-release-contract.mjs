@@ -74,6 +74,7 @@ required(build, 'overlay_archive="$output_dir/wanix-overlay-${archive_arch}${pro
 for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "node", "npm", "go"]) {
   required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} rootfs verification`);
 }
+required(build, 'tar -tf "$archive" --wildcards \'boot/Image\' >/dev/null 2>&1', "rootfs kernel-free assertion (would fail build)");
 required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/crush" >/dev/null', "Crush overlay verification");
 required(build, 'tar -tf "$archive" --wildcards "usr/bin/rg" >/dev/null', "ripgrep rootfs verification");
 required(build, 'tar -tf "$overlay_archive" --wildcards "usr/local/bin/claude-code-best" >/dev/null', "Claude overlay verification");

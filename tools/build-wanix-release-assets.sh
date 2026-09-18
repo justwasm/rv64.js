@@ -81,6 +81,14 @@ overlay_archive="$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
 # The kernel is published as a separate rv64-kernel-<arch>-<profile>
 # asset, not embedded in the overlay. Overlay profile (crush / claude
 # / ...) and kernel profile (minimal / container) are independent.
+# Refuse to publish a rootfs that smuggles a kernel back into /boot/ —
+# that would defeat the kernel/rootfs decoupling contract.
+if tar -tf "$archive" --wildcards 'boot/Image' >/dev/null 2>&1 \
+   || tar -tf "$archive" --wildcards 'boot/bzImage' >/dev/null 2>&1 \
+   || tar -tf "$archive" --wildcards 'boot/vmlinuz*' >/dev/null 2>&1; then
+    echo "error: $archive still embeds a kernel image under /boot/; remove it" >&2
+    exit 1
+fi
 case "$rootfs_profile" in
     crush)
         tar -tf "$overlay_archive" --wildcards "usr/local/bin/crush" >/dev/null
