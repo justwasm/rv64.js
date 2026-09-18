@@ -78,7 +78,9 @@ ALPINE_TAG=3.24 \
 file "$output_dir/kernels/${archive_arch}${profile_suffix}-${kernel_name}"
 archive="$output_dir/wanix-linux-${archive_arch}${profile_suffix}.tgz"
 overlay_archive="$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"
-tar -tf "$overlay_archive" --wildcards "boot/$kernel_name" >/dev/null
+# The kernel is published as a separate rv64-kernel-<arch>-<profile>
+# asset, not embedded in the overlay. Overlay profile (crush / claude
+# / ...) and kernel profile (minimal / container) are independent.
 case "$rootfs_profile" in
     crush)
         tar -tf "$overlay_archive" --wildcards "usr/local/bin/crush" >/dev/null

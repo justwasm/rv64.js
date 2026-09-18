@@ -71,7 +71,6 @@ for (const profile of ["minimal", "crush", "python", "nodejs", "claude", "peri",
 }
 required(build, "ALPINE_TAG=3.24", "guest Alpine version");
 required(build, 'overlay_archive="$output_dir/wanix-overlay-${archive_arch}${profile_suffix}.tgz"', "overlay archive variable");
-required(build, "tar -tf \"$overlay_archive\" --wildcards \"boot/$kernel_name\" >/dev/null", "kernel in overlay archive");
 for (const binary of ["getfattr", "podman", "python3", "strace", "tmux", "uv", "node", "npm", "go"]) {
   required(build, `tar -tf "$archive" --wildcards "usr/bin/${binary}" >/dev/null`, `${binary} rootfs verification`);
 }

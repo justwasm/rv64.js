@@ -341,10 +341,13 @@ esac
 "$docker_cmd" run --rm --platform=linux/amd64 -v "$rootfs:/target" "$alpine_image" \
     find -H /target \( -type f -o -type d \) -exec chown "$(id -u):$(id -g)" {} + || true
 
-# Wanix overlay: kernel + busybox + init + wexec + hostexport + /etc overlay.
-# Busybox is only added on Arch rootfs (Alpine already ships its own in
-# /bin/busybox, and it's the same musl build).
-mkdir -p "$overlay/boot" "$overlay/bin" "$overlay/etc"
+# Wanix overlay: busybox (Arch only) + /bin/init + wexec + hostexport +
+# /etc overlay + profile binaries. The kernel is intentionally NOT
+# bundled here; it ships as a separate `rv64-kernel-<arch>-<profile>`
+# asset so users can mix and match kernel profiles (minimal vs
+# container) with overlay profiles (minimal vs crush vs claude ...)
+# independently.
+mkdir -p "$overlay/bin" "$overlay/etc"
 if [ "$kernel_profile" = container ]; then
     : >"$overlay/etc/wanix-container"
 fi
@@ -366,7 +369,6 @@ git -C "$wanix_src" apply "$here/wanix-wexec-js.patch"
 git -C "$wanix_src" apply "$here/wanix-wexec-poll.patch"
 git -C "$wanix_src" apply "$here/wanix-wexec-signal.patch"
 git -C "$wanix_src" apply "$here/wanix-wexec-live-read.patch"
-cp "$kernel" "$overlay/boot/$kernel_name"
 cp "$here/guest/init" "$overlay/bin/init"
 cp "$wanix_src/extras/linux/bin/domctl" "$wanix_src/extras/linux/bin/post-dhcp" \
     "$wanix_src/extras/linux/bin/startnet" "$wanix_src/extras/linux/bin/workerctl" "$overlay/bin/"
