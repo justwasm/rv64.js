@@ -37,6 +37,21 @@ with lib.kernel;
   INOTIFY_USER = yes;
   SYSVIPC = yes;
 
+  # New baselines required to let /bin/init mount /proc, /sys, devpts and
+  # tmpfs: minimal/allnoconfig turns CGROUPS / PID_NS / UTS_NS / USER_NS off
+  # by default which makes sys_mount return EPERM and immediately kills pid 1.
+  NAMESPACES = yes;
+  UTS_NS = yes;
+  IPC_NS = yes;
+  USER_NS = yes;
+  PID_NS = yes;
+  NET_NS = yes;
+  POSIX_MQUEUE = yes;
+  SECCOMP = yes;
+  SECCOMP_FILTER = yes;
+  BPF = yes;
+  BPF_SYSCALL = yes;
+
   BLK_DEV_INITRD = yes;
   DEVTMPFS = yes;
   DEVTMPFS_MOUNT = yes;
@@ -72,4 +87,11 @@ with lib.kernel;
   TMPFS = yes;
   TMPFS_POSIX_ACL = yes;
   TMPFS_XATTR = yes;
+
+  # init /sbin/init runs mount(2) for /proc, /sys, devpts, tmpfs; without
+  # CGROUPS and the user/pid/uts/ipc namespace flavors the sys_mount path
+  # returns EPERM and pid 1 panics inside the first few lines of /bin/init.
+  CGROUPS = yes;
+  CGROUP_SCHED = yes;
+  FAIR_GROUP_SCHED = yes;
 }
