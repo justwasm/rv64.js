@@ -41,6 +41,16 @@ for (const config of [
 ]) {
   required(read(config), "COMPAT_32BIT_TIME = yes;", config);
 }
+for (const config of [
+  "kernel/rv64-config.nix",
+  "kernel/rv64-container-config.nix",
+  "kernel/x86-v86-config.nix",
+  "kernel/x86-v86-container-config.nix",
+  "kernel/arm64-config.nix",
+  "kernel/arm64-container-config.nix",
+]) {
+  required(read(config), "MULTIUSER = yes;", `${config} init capabilities`);
+}
 
 for (const config of [
   "kernel/rv64-container-config.nix",

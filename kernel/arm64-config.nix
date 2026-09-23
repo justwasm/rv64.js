@@ -12,6 +12,7 @@ with lib.kernel;
   IKCONFIG = yes;
   IKCONFIG_PROC = yes;
 
+  MULTIUSER = yes;
   BINFMT_ELF = yes;
   BINFMT_SCRIPT = yes;
   ELF_CORE = yes;

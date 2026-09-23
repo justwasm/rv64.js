@@ -21,6 +21,7 @@ with lib.kernel;
   IKCONFIG_PROC = yes;
   KERNEL_GZIP = yes;
 
+  MULTIUSER = yes;
   BINFMT_ELF = yes;
   BINFMT_SCRIPT = yes;
   ELF_CORE = yes;

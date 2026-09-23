@@ -40,6 +40,7 @@ with lib.kernel;
   IKCONFIG_PROC = yes;
   BLK_DEV_INITRD = yes;
 
+  MULTIUSER = yes;
   # Normal musl/BusyBox process ABI used by Alpine and apk.
   BINFMT_ELF = yes;
   BINFMT_SCRIPT = yes;
