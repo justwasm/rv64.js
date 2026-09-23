@@ -37,6 +37,16 @@ with lib.kernel;
   INOTIFY_USER = yes;
   SYSVIPC = yes;
 
+  # /bin/init runs `mount -t proc / mount -t sysfs / mount -t tmpfs ...` on
+  # the 9P-backed root. allnoconfig disables these syscalls by default, so
+  # the mount(2) syscall returns -ENOSYS and busybox prints "Permission
+  # denied" before PID 1 panics.
+  SYS_mount = yes;
+  SYS_umount = yes;
+  SYS_oldumount = yes;
+  SYS_chroot = yes;
+  SYS_pivot_root = yes;
+
   BLK_DEV_INITRD = yes;
   DEVTMPFS = yes;
   DEVTMPFS_MOUNT = yes;

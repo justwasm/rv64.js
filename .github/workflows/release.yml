@@ -156,6 +156,14 @@ jobs:
           grep -qx 'CONFIG_IKCONFIG=y' "$config_path"
           grep -qx 'CONFIG_IKCONFIG_PROC=y' "$config_path"
           grep -qx 'CONFIG_MULTIUSER=y' "$config_path"
+          # /bin/init on the 9P root relies on the mount(2) syscall family
+          # to bring up /proc, /sys, devpts and tmpfs. allnoconfig disables
+          # these by default which makes busybox's mount(1) fail with
+          # ENOSYS (logged as "Permission denied") and crashes PID 1.
+          grep -qx 'CONFIG_SYS_mount=y' "$config_path"
+          grep -qx 'CONFIG_SYS_umount=y' "$config_path"
+          grep -qx 'CONFIG_SYS_chroot=y' "$config_path"
+          grep -qx 'CONFIG_SYS_pivot_root=y' "$config_path"
           output="$(nix build --no-link --print-out-paths ".#${KERNEL_ATTR}")"
           test -s "$output/$KERNEL_IMAGE"
           mkdir -p target/kernels

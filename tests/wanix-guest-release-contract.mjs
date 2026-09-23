@@ -34,6 +34,19 @@ for (const config of [
   const source = read(config);
   required(source, "IKCONFIG = yes;", config);
   required(source, "IKCONFIG_PROC = yes;", config);
+  // /bin/init calls `mount -t proc`, `mount -t sysfs`, `mount -t tmpfs`,
+  // and v86 also reuses mount for /dev/pts. allnoconfig leaves these
+  // syscalls disabled by default which makes busybox's mount(1) return
+  // ENOSYS (printed as "Permission denied") and panics PID 1. Every
+  // guest kernel must enable the mount(2) syscall family.
+  for (const option of [
+    "SYS_mount",
+    "SYS_umount",
+    "SYS_chroot",
+    "SYS_pivot_root",
+  ]) {
+    required(source, `  ${option} = yes;`, `${config} ${option}`);
+  }
 }
 for (const config of [
   "kernel/x86-v86-config.nix",

@@ -56,6 +56,14 @@ with lib.kernel;
   INOTIFY_USER = yes;
   SYSVIPC = yes;
 
+  # /bin/init mounts proc/sys/tmpfs on the 9P-backed root; allnoconfig
+  # otherwise leaves these syscalls disabled.
+  SYS_mount = yes;
+  SYS_umount = yes;
+  SYS_oldumount = yes;
+  SYS_chroot = yes;
+  SYS_pivot_root = yes;
+
   # Console and dynamic /dev population. rv64.js implements one ns16550 UART.
   TTY = yes;
   HVC_DRIVER = yes;
