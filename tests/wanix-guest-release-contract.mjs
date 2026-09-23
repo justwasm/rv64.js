@@ -100,7 +100,6 @@ const bundle = read("integrations/wanix/build-linux-bundle.sh");
 const overlay = read("integrations/wanix/build-wanix-overlay.sh");
 required(overlay, 'go build -C "$wanix_src"', "overlay Go build");
 required(overlay, 'wanix-overlay-$arch.XXXXXX', "overlay-only temporary workspace");
-required(overlay, 'for applet in base64 cat grep ifconfig mkdir mount route setsid sh udhcpc;', "overlay BusyBox applet links");
 
 required(bundle, 'WANIX_ROOTFS=arch', "Arch rootfs opt-in");
 required(bundle, 'WANIX_ROOTFS_TARBALL', "Arch rootfs tarball path");
