@@ -33,7 +33,11 @@ mkdir -p "$overlay/bin" "$overlay/etc"
 busybox_bin="$here/bin/busybox-$busybox_arch"
 if [ -f "$busybox_bin" ]; then
     install -m 0755 "$busybox_bin" "$overlay/bin/busybox"
-    ln -sf /bin/busybox "$overlay/bin/sh"
+    mkdir -p "$overlay/usr/bin"
+    for applet in base64 cat grep ifconfig mkdir mount route setsid sh udhcpc; do
+        ln -sf /bin/busybox "$overlay/bin/$applet"
+        ln -sf /bin/busybox "$overlay/usr/bin/$applet"
+    done
 fi
 
 git clone --quiet https://github.com/tractordev/wanix.git "$wanix_src"
