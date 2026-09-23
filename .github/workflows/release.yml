@@ -152,6 +152,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          config_path="$(nix build --no-link --print-out-paths ".#${KERNEL_ATTR}.configfile")"
+          grep -qx 'CONFIG_IKCONFIG=y' "$config_path"
+          grep -qx 'CONFIG_IKCONFIG_PROC=y' "$config_path"
+          grep -qx 'CONFIG_MULTIUSER=y' "$config_path"
           output="$(nix build --no-link --print-out-paths ".#${KERNEL_ATTR}")"
           test -s "$output/$KERNEL_IMAGE"
           mkdir -p target/kernels

@@ -219,6 +219,7 @@ required(releaseWorkflow, 'name: rv64.js and WANIX release', "unified release wo
 required(releaseWorkflow, '- "v[0-9]+.[0-9]+.[0-9]+"', "semver release trigger");
 required(releaseWorkflow, "arch: [riscv64, x86, arm64]", "guest workflow architecture matrix");
 required(releaseWorkflow, "profile: [minimal, crush, python, nodejs, claude, peri, zero, pi, golang, container, container-full]", "guest workflow profile matrix");
+required(releaseWorkflow, "grep -qx 'CONFIG_MULTIUSER=y' \"$config_path\"", "kernel capability release check");
 required(releaseWorkflow, 'name: Create semver release', "semver release preparation job");
 required(releaseWorkflow, 'needs: prepare-release', "guest release dependency");
 required(releaseWorkflow, 'Publish guest archive immediately', "independent guest archive publication");
