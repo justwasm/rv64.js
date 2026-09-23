@@ -17,11 +17,11 @@ case "$arch" in
         ;;
     x86)
         go_arch=386
-        busybox_arch=x86_64
+        busybox_arch=i386
         ;;
     arm64)
         go_arch=arm64
-        busybox_arch=aarch64
+        busybox_arch=arm64
         ;;
     *)
         echo "unsupported architecture: $arch" >&2
