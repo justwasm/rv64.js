@@ -37,14 +37,6 @@ with lib.kernel;
   INOTIFY_USER = yes;
   SYSVIPC = yes;
 
-  # The container kernel also runs /bin/init on a 9P-backed root and needs
-  # the mount(2) syscall family.
-  SYS_mount = yes;
-  SYS_umount = yes;
-  SYS_oldumount = yes;
-  SYS_chroot = yes;
-  SYS_pivot_root = yes;
-
   NAMESPACES = yes;
   UTS_NS = yes;
   IPC_NS = yes;
