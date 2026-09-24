@@ -118,6 +118,7 @@ for (const applet of ["mount", "cat", "grep", "mkdir", "ifconfig", "route", "bas
 }
 required(guestInit, "mount -t proc none /proc", "guest proc mount");
 required(guestInit, "mount -t tmpfs tmpfs /tmp", "guest tmpfs mount");
+required(guestInit, "exec setsid -c /bin/busybox sh -i", "guest direct BusyBox shell");
 required(overlay, 'go build -C "$wanix_src"', "overlay Go build");
 required(overlay, 'wanix-overlay-$arch.XXXXXX', "overlay-only temporary workspace");
 

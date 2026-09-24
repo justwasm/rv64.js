@@ -111,4 +111,4 @@ case " $(cat /proc/cmdline) " in
 esac
 
 echo "WANIX shell ready" >"$console_device"
-exec setsid -c "$SHELL" -i <>"$console_device" >&0 2>&1
+exec setsid -c /bin/busybox sh -i <>"$console_device" >&0 2>&1
