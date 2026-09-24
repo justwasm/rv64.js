@@ -99,9 +99,11 @@ assert.doesNotMatch(build, /tar -tzf[^\n]*\|\s*grep/, "archive verification must
 const bundle = read("integrations/wanix/build-linux-bundle.sh");
 const overlay = read("integrations/wanix/build-wanix-overlay.sh");
 const guestInit = read("integrations/wanix/guest/init");
-required(guestInit, 'mount_fs() {\n    /bin/busybox mount "$@"\n}', "guest direct BusyBox mount helper");
-required(guestInit, "mount_fs -t proc none /proc", "guest proc mount");
-required(guestInit, "mount_fs -t tmpfs tmpfs /tmp", "guest tmpfs mount");
+for (const applet of ["mount", "cat", "grep", "mkdir", "ifconfig", "route", "base64"]) {
+  required(guestInit, `${applet}() {\n    /bin/busybox ${applet} "$@"\n}`, `guest direct BusyBox ${applet} helper`);
+}
+required(guestInit, "mount -t proc none /proc", "guest proc mount");
+required(guestInit, "mount -t tmpfs tmpfs /tmp", "guest tmpfs mount");
 required(overlay, 'go build -C "$wanix_src"', "overlay Go build");
 required(overlay, 'wanix-overlay-$arch.XXXXXX', "overlay-only temporary workspace");
 
