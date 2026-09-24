@@ -7,7 +7,11 @@ if [ ! -x /bin/mount ] || [ ! -x /usr/bin/setsid ]; then
     /bin/busybox --install -s /bin
 fi
 
-mount -t proc none /proc
+mount_fs() {
+    /bin/busybox mount "$@"
+}
+
+mount_fs -t proc none /proc
 
 # rv64.js uses its ns16550 UART for the interactive console; copy/v86 uses
 # virtio-console so that ttyS0 remains available to hostexport. Derive the
@@ -28,9 +32,9 @@ echo "WANIX guest init" >"$console_device"
 # tmux and other terminfo consumers refuse to start without a term name.
 export TERM=xterm
 
-mount -t sysfs none /sys
+mount_fs -t sysfs none /sys
 mkdir -p /dev/pts
-mount -t devpts devpts /dev/pts
+mount_fs -t devpts devpts /dev/pts
 
 if [ -f /etc/wanix-container ]; then
     echo 1 >/proc/sys/net/ipv4/ip_forward
@@ -40,9 +44,9 @@ fi
 # fast scratch files have no home. Give /tmp and /run real tmpfs mounts so
 # tmux and package managers behave like a normal Linux root.
 mkdir -p /tmp /run /dev/shm
-mount -t tmpfs tmpfs /tmp
-mount -t tmpfs tmpfs /run
-mount -t tmpfs tmpfs /dev/shm
+mount_fs -t tmpfs tmpfs /tmp
+mount_fs -t tmpfs tmpfs /run
+mount_fs -t tmpfs tmpfs /dev/shm
 
 : "${SHELL:=/bin/sh}"
 if [ -n "$export" ]; then
@@ -68,7 +72,7 @@ case " $(cat /proc/cmdline) " in
         # second read-only 9P mount. Convert its DER certificate to PEM with
         # BusyBox's base64 applet, avoiding any dependency on openssl.
         mkdir -p /run/rv64-proxy
-        if mount -t 9p -o trans=virtio,version=9p2000.L rv64-proxy /run/rv64-proxy 2>/dev/null; then
+        if mount_fs -t 9p -o trans=virtio,version=9p2000.L rv64-proxy /run/rv64-proxy 2>/dev/null; then
             if [ -f /run/rv64-proxy/ca.der ] && [ -f /etc/ssl/certs/ca-certificates.crt ]; then
                 {
                     echo '-----BEGIN CERTIFICATE-----'
