@@ -37,6 +37,18 @@ with lib.kernel;
   INOTIFY_USER = yes;
   SYSVIPC = yes;
 
+  NAMESPACES = yes;
+  UTS_NS = yes;
+  IPC_NS = yes;
+  USER_NS = yes;
+  PID_NS = yes;
+  NET_NS = yes;
+  POSIX_MQUEUE = yes;
+  SECCOMP = yes;
+  SECCOMP_FILTER = yes;
+  BPF = yes;
+  BPF_SYSCALL = yes;
+
   BLK_DEV_INITRD = yes;
   DEVTMPFS = yes;
   DEVTMPFS_MOUNT = yes;
@@ -72,4 +84,8 @@ with lib.kernel;
   TMPFS = yes;
   TMPFS_POSIX_ACL = yes;
   TMPFS_XATTR = yes;
+
+  CGROUPS = yes;
+  CGROUP_SCHED = yes;
+  FAIR_GROUP_SCHED = yes;
 }

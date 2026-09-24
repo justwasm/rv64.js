@@ -39,7 +39,21 @@ for (const config of [
   "kernel/x86-v86-config.nix",
   "kernel/x86-v86-container-config.nix",
 ]) {
-  required(read(config), "COMPAT_32BIT_TIME = yes;", config);
+  const source = read(config);
+  required(source, "COMPAT_32BIT_TIME = yes;", config);
+  for (const option of [
+    "NAMESPACES",
+    "UTS_NS",
+    "IPC_NS",
+    "USER_NS",
+    "PID_NS",
+    "NET_NS",
+    "CGROUPS",
+    "CGROUP_SCHED",
+    "FAIR_GROUP_SCHED",
+  ]) {
+    required(source, `  ${option} = yes;`, `${config} mount namespace ${option}`);
+  }
 }
 for (const config of [
   "kernel/rv64-config.nix",
