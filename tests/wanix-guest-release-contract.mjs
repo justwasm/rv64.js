@@ -254,7 +254,8 @@ required(releaseWorkflow, 'rv64-kernel-x86-*) boot_image=bzImage', "v86 kernel a
 required(releaseWorkflow, 'rv64-kernel-riscv64-*|rv64-kernel-arm64-*) boot_image=Image', "rv64 and arm64 kernel archive format");
 required(releaseWorkflow, 'cp "$kernel" "$staging/boot/$boot_image"', "kernel archive boot layout");
 required(releaseWorkflow, 'tar -tzf "$kernel.tgz" | grep -qx "boot/$boot_image"', "kernel archive layout verification");
-required(releaseWorkflow, '"${expected[@]/%/.tgz}"', "kernel archive checksums");
+required(releaseWorkflow, 'kernel_files=("${expected[@]}" "${expected[@]/%/.tgz}")', "kernel archive checksum list");
+required(releaseWorkflow, 'sha256sum "${kernel_files[@]}" > KERNELS-SHA256SUMS', "kernel archive checksums");
 required(releaseWorkflow, 'needs: [build-library, publish-rv64-archive]', "library publish dependency");
 required(releaseWorkflow, '"rv64.js-${release_tag#v}.tar.gz"', "library release asset");
 assert.doesNotMatch(releaseWorkflow, /wanix-(guest|rv64)-[^\n]*tag/i, "legacy WANIX release tag family");
