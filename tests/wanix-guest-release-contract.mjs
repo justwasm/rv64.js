@@ -250,6 +250,11 @@ required(releaseWorkflow, 'contents: write', "guest build job needs write scope 
 required(releaseWorkflow, 'permissions:\n      contents: write\n    strategy:', "guest build job declares explicit write permission");
 required(releaseWorkflow, 'gh release edit "$release_tag" \\\n                --repo "$GITHUB_REPOSITORY" \\\n                --draft=false', "prepare-release promotes the auto-created draft to published");
 required(releaseWorkflow, 'gh release upload "$release_tag" target/release/rv64.tgz', "rv64 archive release asset");
+required(releaseWorkflow, 'rv64-kernel-x86-*) boot_image=vmlinuz', "v86 kernel archive path");
+required(releaseWorkflow, 'rv64-kernel-riscv64-*|rv64-kernel-arm64-*) boot_image=Image', "rv64 kernel archive path");
+required(releaseWorkflow, '--transform="s|^$kernel$|boot/$boot_image|"', "kernel archive boot layout");
+required(releaseWorkflow, 'tar -tzf "$kernel.tgz" | grep -qx "boot/$boot_image"', "kernel archive layout verification");
+required(releaseWorkflow, '"${expected[@]/%/.tgz}"', "kernel archive checksums");
 required(releaseWorkflow, 'needs: [build-library, publish-rv64-archive]', "library publish dependency");
 required(releaseWorkflow, '"rv64.js-${release_tag#v}.tar.gz"', "library release asset");
 assert.doesNotMatch(releaseWorkflow, /wanix-(guest|rv64)-[^\n]*tag/i, "legacy WANIX release tag family");

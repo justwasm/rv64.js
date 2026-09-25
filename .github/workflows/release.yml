@@ -206,9 +206,15 @@ jobs:
           )
           for kernel in "${expected[@]}"; do
             test -s "$kernel"
+            case "$kernel" in
+              rv64-kernel-x86-*) boot_image=vmlinuz ;;
+              rv64-kernel-riscv64-*|rv64-kernel-arm64-*) boot_image=Image ;;
+            esac
+            tar -czf "$kernel.tgz" --transform="s|^$kernel$|boot/$boot_image|" "$kernel"
+            tar -tzf "$kernel.tgz" | grep -qx "boot/$boot_image"
           done
-          test "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq "${#expected[@]}"
-          sha256sum "${expected[@]}" > KERNELS-SHA256SUMS
+          test "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq "$((2 * ${#expected[@]} + 1))"
+          sha256sum "${expected[@]}" "${expected[@]/%/.tgz}" > KERNELS-SHA256SUMS
 
       - name: Publish kernel assets
         env:
