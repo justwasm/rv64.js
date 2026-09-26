@@ -401,12 +401,12 @@ jobs:
           esac
           archive=(target/wanix-rootfs/${{ matrix.arch }}-${{ matrix.profile }}/wanix-linux-*.tgz)
           test "${#archive[@]}" -eq 1
-          oras push "$IMAGE:${{ matrix.arch }}-${{ matrix.profile }}-${RELEASE_TAG}" \\
-            --artifact-type application/vnd.gearshell.rootfs.v1 \\
-            --annotation "org.opencontainers.image.title=wanix-${{ matrix.arch }}-${{ matrix.profile }}" \\
-            --annotation "org.opencontainers.image.version=${RELEASE_TAG}" \\
-            --annotation "org.opencontainers.image.ref.name=${{ matrix.arch }}-${{ matrix.profile }}-${RELEASE_TAG}" \\
-            --annotation "org.gearshell.platform=$platform" \\
+          oras push "$IMAGE:${{ matrix.arch }}-${{ matrix.profile }}-${RELEASE_TAG}" \
+            --artifact-type application/vnd.gearshell.rootfs.v1 \
+            --annotation "org.opencontainers.image.title=wanix-${{ matrix.arch }}-${{ matrix.profile }}" \
+            --annotation "org.opencontainers.image.version=${RELEASE_TAG}" \
+            --annotation "org.opencontainers.image.ref.name=${{ matrix.arch }}-${{ matrix.profile }}-${RELEASE_TAG}" \
+            --annotation "org.gearshell.platform=$platform" \
             "${archive[0]}:application/vnd.oci.image.layer.v1.tar+gzip"
 
   build-wanix-overlays:
