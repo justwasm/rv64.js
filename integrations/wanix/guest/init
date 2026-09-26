@@ -11,6 +11,7 @@ mount_fs() {
     /bin/busybox mount "$@"
 }
 
+/bin/busybox mkdir -p /proc /sys
 mount_fs -t proc none /proc
 
 # rv64.js uses its ns16550 UART for the interactive console; copy/v86 uses
