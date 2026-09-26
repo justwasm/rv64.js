@@ -364,8 +364,8 @@ if [ "${WANIX_ROOTFS:-}" = arch ]; then
         echo "missing busybox for $guest_arch at $busybox_bin; run tools/fetch-busybox.sh" >&2
         exit 1
     fi
-    install -m 0755 "$busybox_bin" "$overlay/bin/busybox"
-    ln -sf /bin/busybox "$overlay/bin/sh"
+    mkdir -p "$overlay/libexec"
+    install -m 0755 "$busybox_bin" "$overlay/libexec/wanix-busybox"
 fi
 git clone --quiet https://github.com/tractordev/wanix.git "$wanix_src"
 git -C "$wanix_src" checkout --quiet "$wanix_ref"

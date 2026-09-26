@@ -29,11 +29,10 @@ case "$arch" in
         ;;
 esac
 
-mkdir -p "$overlay/bin" "$overlay/etc"
+mkdir -p "$overlay/bin" "$overlay/libexec" "$overlay/etc"
 busybox_bin="$here/bin/busybox-$busybox_arch"
 if [ -f "$busybox_bin" ]; then
-    install -m 0755 "$busybox_bin" "$overlay/bin/busybox"
-    ln -sf /bin/busybox "$overlay/bin/sh"
+    install -m 0755 "$busybox_bin" "$overlay/libexec/wanix-busybox"
 fi
 
 git clone --quiet https://github.com/tractordev/wanix.git "$wanix_src"
